@@ -69,6 +69,15 @@ export function SessionHud({
             <span className="session-hud__phase-tag">{phaseTitle}</span>
             <span className="session-hud__phase-detail">{phaseDetail}</span>
           </div>
+          <div className="session-hud__chips" role="status">
+            <span className={`session-hud__chip${hud.viewOk ? " ok" : " bad"}`}>
+              Vista
+            </span>
+            <span className={`session-hud__chip${hud.trackingOk ? " ok" : " bad"}`}>
+              Brazos
+            </span>
+            {hud.noPose && <span className="session-hud__chip bad">Sin pose</span>}
+          </div>
           {inExecution && (
             <div className="session-hud__metric-pill" title={hud.angleLabel}>
               <span className="session-hud__metric-label">{hud.angleLabel}</span>
@@ -81,15 +90,7 @@ export function SessionHud({
             </div>
           )}
         </div>
-        <div className="session-hud__chips" role="status">
-          <span className={`session-hud__chip${hud.viewOk ? " ok" : " bad"}`}>
-            Vista
-          </span>
-          <span className={`session-hud__chip${hud.trackingOk ? " ok" : " bad"}`}>
-            Brazos
-          </span>
-          {hud.noPose && <span className="session-hud__chip bad">Sin pose</span>}
-        </div>
+       
       </header>
 
       <main className="session-hud__body">
