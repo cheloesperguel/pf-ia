@@ -41,6 +41,7 @@ export function evaluateSetupChecks(
 
   const failures: [string, string][] = [];
   for (const chk of checks) {
+    if (chk.enabled === false) continue;
     const cid = String(chk.id ?? chk.kind ?? "check");
     const msg = String(chk.message ?? "Ajusta la pose inicial.");
     const kind = chk.kind;

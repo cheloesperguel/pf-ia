@@ -1,8 +1,17 @@
 /// <reference types="vite/client" />
 
+interface SpeechRecognitionAlternative {
+  transcript: string;
+}
+
+interface SpeechRecognitionResult {
+  readonly isFinal: boolean;
+  readonly [index: number]: SpeechRecognitionAlternative;
+}
+
 interface SpeechRecognitionResultList {
   readonly length: number;
-  [index: number]: { readonly [index: number]: { transcript: string } };
+  [index: number]: SpeechRecognitionResult;
 }
 
 interface SpeechRecognitionEvent extends Event {
@@ -16,6 +25,7 @@ interface SpeechRecognition extends EventTarget {
   interimResults: boolean;
   onresult: ((ev: SpeechRecognitionEvent) => void) | null;
   onerror: ((ev: Event) => void) | null;
+  onend: ((ev: Event) => void) | null;
   start(): void;
   stop(): void;
 }

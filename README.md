@@ -26,14 +26,56 @@ npm run build    # genera dist/ para producción
 npm run preview
 ```
 
-## API coach (Python)
+## Voz y coach OpenAI
+
+### Modo recomendado: OpenAI directo desde el navegador
+
+1. Copia `web/.env.example` → `web/.env`
+2. Pon `VITE_OPENAI_API_KEY=sk-...`
+3. `npm run dev` — Vite hace proxy `/openai` → `api.openai.com` (evita CORS)
+
+HUD: **«OpenAI directo · Di «oye entrenador»…»**. No hace falta `uvicorn`.
+
+**Seguridad:** la clave viaja en el cliente (cualquiera con la PWA puede extraerla). Usa una clave con **límite de gasto** o solo en red local. En producción estática necesitas el mismo proxy en nginx/Caddy.
+
+### Alternativas
+
+| Modo | Config |
+|------|--------|
+| OpenAI navegador | `VITE_OPENAI_API_KEY` en `web/.env` |
+| API Python | `uvicorn api.main:app` + sin `VITE_OPENAI_API_KEY` |
+| Solo voz local | Sin clave ni uvicorn (`SpeechRecognition` + respuestas fijas) |
+
+TTS (hablar avisos) siempre es voz del sistema del navegador.
+
+## Micrófono en la PWA
+
+Al entrar en sesión con coach activo, el HUD muestra una segunda línea, por ejemplo:
+
+`Micrófono (grabación): Micrófono interno (3 entradas de audio…)`
+
+- **OpenAI / API Python:** graba con `getUserMedia` → el nombre es el dispositivo que el navegador asignó.
+- **Solo navegador:** la prueba usa el mismo API; el **reconocimiento de voz** (Web Speech) no permite elegir mic en la web — suele ser el predeterminado del SO.
+
+**Comprobar manualmente (Chrome):** icono candado en la barra de direcciones → Micrófono → dispositivo permitido. En consola (F12), tras dar permiso:
+
+```js
+navigator.mediaDevices.enumerateDevices().then(d =>
+  console.table(d.filter(x => x.kind === "audioinput"))
+);
+```
+
+En escritorio Python sigue existiendo `python mic_debug.py` para elegir dispositivo por índice/nombre (`settings_ia.json` → `voice.input_device`).
+
+## API coach Python (opcional)
 
 ```bash
 cd web
 pip install -r api/requirements.txt
-# OPENAI_API_KEY en web/.env o en ../.env
 uvicorn api.main:app --reload --port 8000
 ```
+
+Solo si **no** defines `VITE_OPENAI_API_KEY`.
 
 ## Estructura `src/`
 

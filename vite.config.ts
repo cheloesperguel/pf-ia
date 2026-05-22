@@ -39,6 +39,11 @@ export default defineConfig({
         target: "http://127.0.0.1:8000",
         changeOrigin: true,
       },
+      "/openai": {
+        target: "https://api.openai.com",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/openai/, ""),
+      },
     },
   },
 });

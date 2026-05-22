@@ -122,6 +122,8 @@ export interface WorkoutHudSnapshot {
 
 export interface WorkoutGuideDeps {
   onSpeak: (text: string) => void;
+  /** Resumen IA tras serie; no debe ser cortado por avisos de forma. */
+  onSpeakCoach?: (text: string) => void;
   onListen: (seconds: number) => Promise<string>;
   onSummarize: (errs: SetErrorRecord[], setNum: number) => Promise<string>;
   onStatus?: (msg: string) => void;
@@ -248,7 +250,10 @@ export class WorkoutGuide {
       this.voiceBusy = true;
       try {
         const text = await this.deps.onSummarize(errs, this.currentSet);
-        if (text) this.deps.onSpeak(text);
+        if (text) {
+          const say = this.deps.onSpeakCoach ?? this.deps.onSpeak;
+          say(text);
+        }
       } finally {
         this.voiceBusy = false;
       }

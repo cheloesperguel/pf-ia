@@ -1,4 +1,22 @@
+import {
+  openaiAskCoach,
+  openaiClassifyReadiness,
+  openaiDirectConfigured,
+  openaiHealth,
+  openaiSummarizeSet,
+  openaiTranscribe,
+} from "./openaiDirect";
+
 const API_BASE = import.meta.env.VITE_COACH_API_URL ?? "";
+
+export async function pythonApiHealth(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/health`);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
 
 export type CoachState =
   | "idle"
@@ -7,6 +25,13 @@ export type CoachState =
   | "speaking"
   | "workout_listen"
   | "unavailable";
+
+export type CoachTransport = "openai-direct" | "python-api" | "off";
+
+export function coachTransport(): CoachTransport {
+  if (openaiDirectConfigured()) return "openai-direct";
+  return "off";
+}
 
 async function parseError(res: Response): Promise<string> {
   try {
@@ -18,15 +43,14 @@ async function parseError(res: Response): Promise<string> {
 }
 
 export async function coachHealth(): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_BASE}/api/health`);
-    return res.ok;
-  } catch {
-    return false;
+  if (openaiDirectConfigured()) {
+    return openaiHealth();
   }
+  return pythonApiHealth();
 }
 
 export async function transcribeAudio(blob: Blob): Promise<string> {
+  if (openaiDirectConfigured()) return openaiTranscribe(blob);
   const fd = new FormData();
   const ext =
     blob.type.includes("mp4") || blob.type.includes("aac")
@@ -47,6 +71,9 @@ export async function askCoachQuestion(
   exerciseId: string,
   sessionContext: Record<string, unknown>,
 ): Promise<string> {
+  if (openaiDirectConfigured()) {
+    return openaiAskCoach(question, exerciseId, sessionContext);
+  }
   const res = await fetch(`${API_BASE}/api/coach/ask`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -62,6 +89,7 @@ export async function askCoachQuestion(
 }
 
 export async function classifyReadinessApi(transcript: string): Promise<string> {
+  if (openaiDirectConfigured()) return openaiClassifyReadiness(transcript);
   const res = await fetch(`${API_BASE}/api/coach/classify-readiness`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -77,6 +105,9 @@ export async function summarizeSetApi(
   setNum: number,
   errors: { rule_id: string; message: string; count: number }[],
 ): Promise<string> {
+  if (openaiDirectConfigured()) {
+    return openaiSummarizeSet(exerciseId, setNum, errors);
+  }
   const res = await fetch(`${API_BASE}/api/coach/summarize-set`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

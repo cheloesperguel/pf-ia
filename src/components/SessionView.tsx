@@ -28,6 +28,14 @@ import {
   drawPoseStatusBanner,
   drawSessionVisuals,
 } from "@/lib/sessionVisuals";
+import { CalibrationRuleBanner } from "@/components/CalibrationRuleBanner";
+import { WebCalibrationPanel } from "@/components/WebCalibrationPanel";
+import {
+  CALIBRATION_DEFAULT_SOLO,
+  getCalibrationFocusInfo,
+  pressCalibrationSliders,
+  setSoloRule,
+} from "@/lib/liveLimits";
 import { WorkoutGuide } from "@/lib/workoutGuide";
 
 interface SessionViewProps {
@@ -69,6 +77,17 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
   const [fps, setFps] = useState(0);
   const [hud, setHud] = useState<SessionHudState>(EMPTY_HUD);
   const [coachStatus, setCoachStatus] = useState("");
+  const [calOpen, setCalOpen] = useState(false);
+  const [calSoloIndex, setCalSoloIndex] = useState<number | null>(
+    CALIBRATION_DEFAULT_SOLO,
+  );
+  const [calSliderKey, setCalSliderKey] = useState<string | null>(null);
+  const [cfgRevision, setCfgRevision] = useState(0);
+
+  const bumpCfg = useCallback(() => {
+    setCfgRevision((n) => n + 1);
+    setCfg((c) => (c ? { ...c } : c));
+  }, []);
 
   const ttsCfg = (cfg?.tts ?? {}) as Record<string, unknown>;
   const ttsOn = Boolean(ttsCfg.enabled !== false);
@@ -77,7 +96,8 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
   const displayName =
     (cfg?.display_name as string) || exerciseId.replace(/_/g, " ");
 
-  const { speak, unlockSpeech, needsUnlock } = useSpeech(ttsOn);
+  const { speakAlert, speakCoach, stopCoachSpeech, coachSpeaking, unlockSpeech, needsUnlock } =
+    useSpeech(ttsOn);
 
   const getSessionContext = useCallback(() => {
     const w = workoutRef.current;
@@ -105,8 +125,8 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
     exerciseDisplay: displayName,
     recordSeconds: Number(vcCfg.record_seconds ?? 5),
     getSessionContext,
-    onSpeak: speak,
-    executionActive: hud.phase === "execution",
+    onSpeak: speakCoach,
+    executionActive: calOpen || hud.phase === "execution",
   });
 
   const listenBlockingRef = useRef(voice.listenBlocking);
@@ -115,11 +135,43 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
   classifyFnRef.current = voice.classifyFn;
 
   const { processFrame, skipSetup } = useExerciseSession(cfg, poseBundle, {
-    ttsEnabled: ttsOn,
-    onSpeak: speak,
+    ttsEnabled: ttsOn && !calOpen,
+    onSpeak: speakAlert,
     workoutRef,
     coachStatus: voice.status || coachStatus,
+    cfgRevision,
   });
+
+  const calFocus =
+    calOpen && cfg
+      ? getCalibrationFocusInfo(cfg, {
+          soloIndex: calSoloIndex,
+          sliderKey: calSliderKey ?? undefined,
+        })
+      : null;
+
+  const enterCalibration = useCallback(() => {
+    if (!cfg) return;
+    skipSetup();
+    setHud((prev) => ({ ...prev, phase: "execution" }));
+    setCalSoloIndex(CALIBRATION_DEFAULT_SOLO);
+    setCalSliderKey("exec_scap");
+    setSoloRule(cfg, "elbows_scapular_plane");
+    setCfgRevision((n) => n + 1);
+    setCfg((c) => (c ? { ...c } : c));
+    setCalOpen(true);
+  }, [cfg, skipSetup]);
+
+  const exitCalibration = useCallback(() => {
+    if (cfg) {
+      setSoloRule(cfg, null);
+      setCfgRevision((n) => n + 1);
+      setCfg((c) => (c ? { ...c } : c));
+    }
+    setCalOpen(false);
+    setCalSoloIndex(null);
+    setCalSliderKey(null);
+  }, [cfg]);
 
   const { videoRef, getVideo, ready: camReady, error: camError, mirror } =
     useCamera({
@@ -153,7 +205,8 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
         if (cancelled) return;
         if (prog && ttsOn) {
           workoutRef.current = new WorkoutGuide(prog, {
-            onSpeak: speak,
+            onSpeak: speakAlert,
+            onSpeakCoach: speakCoach,
             onListen: (sec) => listenBlockingRef.current(sec),
             onSummarize: async (errs, setNum) => {
               if (await coachHealth()) {
@@ -190,7 +243,7 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
       cancelled = true;
       workoutRef.current = null;
     };
-  }, [exerciseId, speak, ttsOn]);
+  }, [exerciseId, speakAlert, speakCoach, ttsOn]);
 
   useEffect(() => {
     if (!cfg) return;
@@ -349,6 +402,13 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
     setHud((prev) => ({ ...prev, phase: "execution" }));
   };
 
+  useEffect(() => {
+    if (calOpen && cfg && hud.phase === "setup") {
+      skipSetup();
+      setHud((prev) => ({ ...prev, phase: "execution" }));
+    }
+  }, [calOpen, cfg, hud.phase, skipSetup]);
+
   return (
     <div className="session">
       <header className="session-bar">
@@ -359,6 +419,15 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
         <span className="session-meta">
           {busy ? "Cargando…" : `${fps} fps · ${hud.repCount} reps`}
         </span>
+        {cfg && (
+          <button
+            type="button"
+            className={`btn-cal-toggle${calOpen ? " active" : ""}`}
+            onClick={() => (calOpen ? exitCalibration() : enterCalibration())}
+          >
+            {calOpen ? "Salir cal." : "Calibrar"}
+          </button>
+        )}
       </header>
 
       {status && <p className="session-error">{status}</p>}
@@ -393,13 +462,50 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
           playsInline
         />
         <canvas ref={canvasRef} className="session-canvas" />
+        {calOpen && <CalibrationRuleBanner focus={calFocus} />}
         <SessionHud
           hud={hud}
+          calibrationMode={calOpen}
           loadingMessage={hudLoadingMessage}
-          onSkipSetup={handleSkipSetup}
-          onAskCoach={voice.apiOk ? voice.askByButton : undefined}
+          onSkipSetup={calOpen ? undefined : handleSkipSetup}
+          onAskCoach={
+            calOpen || !voice.voiceAvailable ? undefined : voice.askByButton
+          }
           coachStatus={voice.status || coachStatus}
+          hearPreview={voice.hearPreview}
+          coachSpeaking={coachSpeaking || voice.state === "speaking"}
+          onStopCoachSpeech={() => {
+            stopCoachSpeech();
+            voice.abortCoachSpeech();
+          }}
         />
+        {calOpen && cfg && (
+          <WebCalibrationPanel
+            exerciseId={exerciseId}
+            cfg={cfg}
+            metrics={hud.metrics}
+            soloIndex={calSoloIndex}
+            onSoloChange={(n) => {
+              setCalSoloIndex(n);
+              if (n == null) {
+                setCalSliderKey(null);
+                return;
+              }
+              const sl = pressCalibrationSliders(cfg).find(
+                (s) => s.soloIndex === n,
+              );
+              if (sl) setCalSliderKey(sl.key);
+            }}
+            onSliderFocus={setCalSliderKey}
+            onCfgChange={bumpCfg}
+            onClose={exitCalibration}
+            onApplied={async () => {
+              const ex = await loadExercise(exerciseId);
+              setCfg(ex);
+              setCfgRevision((n) => n + 1);
+            }}
+          />
+        )}
       </div>
     </div>
   );

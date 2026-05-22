@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Claves y secretos (Vite: VITE_* en web/.env)
+.env
+.env.*
+!.env.example

@@ -23,12 +23,30 @@
     "reference_pose_flash_s": 2.5,
     "reference_pose": {
       "landmarks": {
-        "LEFT_SHOULDER": { "x": 0.38, "y": 0.35 },
-        "RIGHT_SHOULDER": { "x": 0.62, "y": 0.35 },
-        "LEFT_ELBOW": { "x": 0.30, "y": 0.48 },
-        "RIGHT_ELBOW": { "x": 0.70, "y": 0.48 },
-        "LEFT_WRIST": { "x": 0.28, "y": 0.55 },
-        "RIGHT_WRIST": { "x": 0.72, "y": 0.55 }
+        "LEFT_SHOULDER": {
+          "x": 0.38,
+          "y": 0.35
+        },
+        "RIGHT_SHOULDER": {
+          "x": 0.62,
+          "y": 0.35
+        },
+        "LEFT_ELBOW": {
+          "x": 0.3,
+          "y": 0.48
+        },
+        "RIGHT_ELBOW": {
+          "x": 0.7,
+          "y": 0.48
+        },
+        "LEFT_WRIST": {
+          "x": 0.28,
+          "y": 0.55
+        },
+        "RIGHT_WRIST": {
+          "x": 0.72,
+          "y": 0.55
+        }
       }
     },
     "tts": {
@@ -51,7 +69,7 @@
         "kind": "metric",
         "metric": "elbow_angle_min_deg",
         "op": "gte",
-        "value": 72,
+        "value": 65,
         "message": "Flexiona más los codos: rack sentado (≈90°, no brazos rectos arriba)."
       },
       {
@@ -89,11 +107,14 @@
     "min_visibility": 0.36
   },
   "visual": {
-    "wrist_elbow_stack_sin_max": 0.20,
+    "wrist_elbow_stack_sin_max": 0.17,
     "pulse_hz": 2.2,
     "show_elbow_z": true,
     "show_bar_guide": true,
-    "elbow_z_offset_target": { "min": 0.02, "max": 0.10 },
+    "elbow_z_offset_target": {
+      "min": 0.02,
+      "max": 0.1
+    },
     "bar_rack_guide": {
       "below_nose_min": 0.04,
       "below_nose_max": 0.22,
@@ -103,7 +124,7 @@
   "frontal": {
     "require_hips": false,
     "min_shoulder_pair_visibility": 0.35,
-    "min_shoulder_width_norm": 0.10
+    "min_shoulder_width_norm": 0.1
   },
   "rules": [
     {
@@ -121,7 +142,9 @@
       "kind": "visibility_both_arms",
       "priority": 2,
       "tts_enabled": true,
-      "requires": ["frontal_view"],
+      "requires": [
+        "frontal_view"
+      ],
       "blocks_rep": true,
       "message": "Asegura que se vean hombros, codos y muñecas de ambos brazos."
     },
@@ -131,11 +154,14 @@
       "kind": "metric",
       "metric": "elbow_scapular_lateral_frac_max",
       "op": "lte",
-      "value": 0.96,
+      "value": 0.65,
       "phase": "bottom",
       "priority": 3,
       "tts_enabled": false,
-      "requires": ["frontal_view", "visibility_both_arms"],
+      "requires": [
+        "frontal_view",
+        "visibility_both_arms"
+      ],
       "blocks_rep": true,
       "message": "Cierra codos hacia la barra: no los abras en cruz a los lados."
     },
@@ -149,7 +175,10 @@
       "phase": "bottom",
       "priority": 6,
       "tts_enabled": false,
-      "requires": ["frontal_view", "visibility_both_arms"],
+      "requires": [
+        "frontal_view",
+        "visibility_both_arms"
+      ],
       "blocks_rep": false,
       "message": "Lleva los codos un poco hacia adelante (rack), no pegados al torso de lado."
     },
@@ -159,13 +188,16 @@
       "kind": "metric",
       "metric": "wrist_elbow_stack_sin_max",
       "op": "lte",
-      "value": 0.20,
+      "value": 0.2,
       "phase": "bottom",
       "priority": 4,
       "tts_enabled": false,
-      "requires": ["frontal_view", "visibility_both_arms"],
+      "requires": [
+        "frontal_view",
+        "visibility_both_arms"
+      ],
       "blocks_rep": false,
-      "message": "Alinea muñeca con el codo en la bajada (aviso; no invalida la rep en variante sentada)."
+      "message": "Alinea muñeca con el codo en la bajada"
     },
     {
       "id": "elbows_below_shoulders",
@@ -177,7 +209,10 @@
       "phase": "bottom",
       "priority": 5,
       "tts_enabled": false,
-      "requires": ["frontal_view", "visibility_both_arms"],
+      "requires": [
+        "frontal_view",
+        "visibility_both_arms"
+      ],
       "blocks_rep": false,
       "message": "Rack sentado: prioriza ángulo de codo; esta señal en imagen es solo referencia."
     }

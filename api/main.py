@@ -114,6 +114,44 @@ def _chat_short(user_prompt: str, *, max_tokens: int = 220) -> str:
     return (resp.choices[0].message.content or "").strip()
 
 
+def _exercise_paths(exercise_id: str) -> tuple[Path, Path]:
+    inst = PUBLIC_DIR / "exercise_instructions"
+    return inst / f"{exercise_id}.json", inst / f"{exercise_id}_calibration.json"
+
+
+@app.post("/api/exercise/{exercise_id}/calibration")
+def save_calibration(exercise_id: str, body: dict[str, Any]) -> dict[str, str]:
+    """Guarda patch de calibración (PWA o herramientas locales)."""
+    _, cal_path = _exercise_paths(exercise_id)
+    cal_path.parent.mkdir(parents=True, exist_ok=True)
+    cal_path.write_text(
+        json.dumps(body, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    return {"saved": str(cal_path)}
+
+
+@app.post("/api/exercise/{exercise_id}/calibration/apply")
+def apply_calibration_api(exercise_id: str) -> dict[str, Any]:
+    """Fusiona *_calibration.json en el JSON principal del ejercicio."""
+    from apply_calibration import apply_patch
+
+    main_path, cal_path = _exercise_paths(exercise_id)
+    if not main_path.is_file():
+        raise HTTPException(404, f"No existe {main_path.name}")
+    if not cal_path.is_file():
+        raise HTTPException(404, f"Calibra antes: {cal_path.name}")
+    main = json.loads(main_path.read_text(encoding="utf-8"))
+    patch = json.loads(cal_path.read_text(encoding="utf-8"))
+    changes = apply_patch(main, patch)
+    if changes:
+        main_path.write_text(
+            json.dumps(main, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+    return {"changes": changes, "saved": bool(changes)}
+
+
 @app.get("/api/health")
 def health() -> dict[str, str]:
     try:

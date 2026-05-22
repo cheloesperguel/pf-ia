@@ -20,6 +20,7 @@ export function collectAlertItems(
   const formOk = viewOk && trackingOk;
 
   for (const rule of (cfg.rules ?? []) as Record<string, unknown>[]) {
+    if (rule.enabled === false) continue;
     const kind = rule.kind;
     const rid = String(rule.id ?? kind);
     const msg = String(rule.message ?? "");
@@ -55,6 +56,7 @@ export function validateBottomSnapshot(
   }
 
   for (const rule of (cfg.rules ?? []) as Record<string, unknown>[]) {
+    if (rule.enabled === false) continue;
     if (!rule.blocks_rep) continue;
     if (rule.kind !== "metric" || rule.phase !== "bottom") continue;
     const val = snap[String(rule.metric)] ?? NaN;

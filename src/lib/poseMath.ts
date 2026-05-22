@@ -120,46 +120,41 @@ function shoulderMidXz(
 function elbowScapularFracsSide(
   shoulderW: LandmarkLike,
   elbowW: LandmarkLike,
-  midXz: [number, number],
+  _midXz: [number, number],
 ): [number, number] {
-  const [midX, midZ] = midXz;
   const armX = (elbowW.x ?? 0) - (shoulderW.x ?? 0);
   const armZ = (elbowW.z ?? 0) - (shoulderW.z ?? 0);
-  const latX = (shoulderW.x ?? 0) - midX;
-  const latZ = (shoulderW.z ?? 0) - midZ;
   const armLen = Math.hypot(armX, armZ);
-  const latLen = Math.hypot(latX, latZ);
-  if (armLen < 1e-5 || latLen < 1e-5) return [NaN_, NaN_];
-  const armU: [number, number] = [armX / armLen, armZ / armLen];
-  const latU: [number, number] = [latX / latLen, latZ / latLen];
-  const lateralFrac = Math.abs(armU[0] * latU[0] + armU[1] * latU[1]);
-  const fwdA: [number, number] = [-latU[1], latU[0]];
-  const fwdB: [number, number] = [latU[1], -latU[0]];
-  const forwardFrac = Math.max(
-    0,
-    Math.max(
-      armU[0] * fwdA[0] + armU[1] * fwdA[1],
-      armU[0] * fwdB[0] + armU[1] * fwdB[1],
-    ),
-  );
+  if (armLen < 1e-5) return [NaN_, NaN_];
+  const lateralFrac = Math.abs(armX) / armLen;
+  const forwardFrac = Math.abs(armZ) / armLen;
   return [lateralFrac, forwardFrac];
+}
+
+/** |Δx|/‖Δxy‖ humero en imagen: bajo = plano escapular, alto = cruz (frontal sentado). */
+function upperArmLateralFracImage(
+  shoulder: LandmarkLike,
+  elbow: LandmarkLike,
+): number {
+  const dx = (elbow.x ?? 0) - (shoulder.x ?? 0);
+  const dy = (elbow.y ?? 0) - (shoulder.y ?? 0);
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-6) return NaN_;
+  return Math.abs(dx) / len;
 }
 
 function elbowScapularLateralFracMax(
   norm: LandmarkLike[],
-  world: LandmarkLike[],
+  _world: LandmarkLike[],
   minVis: number,
 ): number {
-  const mid = shoulderMidXz(world);
-  if (!mid) return NaN_;
   const fracs: number[] = [];
   if (
     armChainVisible(norm, PL.LEFT_SHOULDER, PL.LEFT_ELBOW, PL.LEFT_WRIST, minVis)
   ) {
-    const [lat] = elbowScapularFracsSide(
-      world[PL.LEFT_SHOULDER],
-      world[PL.LEFT_ELBOW],
-      mid,
+    const lat = upperArmLateralFracImage(
+      norm[PL.LEFT_SHOULDER],
+      norm[PL.LEFT_ELBOW],
     );
     if (!Number.isNaN(lat)) fracs.push(lat);
   }
@@ -172,10 +167,9 @@ function elbowScapularLateralFracMax(
       minVis,
     )
   ) {
-    const [lat] = elbowScapularFracsSide(
-      world[PL.RIGHT_SHOULDER],
-      world[PL.RIGHT_ELBOW],
-      mid,
+    const lat = upperArmLateralFracImage(
+      norm[PL.RIGHT_SHOULDER],
+      norm[PL.RIGHT_ELBOW],
     );
     if (!Number.isNaN(lat)) fracs.push(lat);
   }

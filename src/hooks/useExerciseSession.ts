@@ -69,6 +69,8 @@ export function useExerciseSession(
     onSpeak?: (text: string) => void;
     workoutRef?: RefObject<WorkoutGuide | null>;
     coachStatus?: string;
+    /** Incrementar al mutar umbrales en calibración web. */
+    cfgRevision?: number;
   } = {},
 ) {
   const setupGateRef = useRef<SetupGate | null>(null);
@@ -427,6 +429,7 @@ export function useExerciseSession(
       alpha,
       frontalCfg,
       armsVisCfg,
+      options.cfgRevision,
     ],
   );
 

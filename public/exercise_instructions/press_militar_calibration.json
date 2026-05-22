@@ -8,10 +8,10 @@
   },
   "rule_values": {
     "setup_scapular_plane": 0.89,
-    "elbows_scapular_plane": 0.96,
+    "elbows_scapular_plane": 0.65,
     "elbows_forward_rack": 0.22,
-    "wrist_elbow_stack_sin_max": 0.20,
-    "setup_rack_depth": 72,
+    "wrist_elbow_stack_sin_max": 0.17,
+    "setup_rack_depth": 65,
     "setup_not_locked": 128
   }
 }

@@ -2,6 +2,8 @@
 
 let unlocked = false;
 let voicesPrimed = false;
+let coachSpeechLocked = false;
+const lockListeners = new Set<(locked: boolean) => void>();
 
 export function isIosSafari(): boolean {
   if (typeof navigator === "undefined") return false;
@@ -14,6 +16,31 @@ export function isIosSafari(): boolean {
 
 export function speechSupported(): boolean {
   return typeof speechSynthesis !== "undefined";
+}
+
+export function isCoachSpeechLocked(): boolean {
+  return coachSpeechLocked;
+}
+
+export function subscribeCoachSpeechLock(
+  listener: (locked: boolean) => void,
+): () => void {
+  lockListeners.add(listener);
+  listener(coachSpeechLocked);
+  return () => lockListeners.delete(listener);
+}
+
+function setCoachSpeechLock(locked: boolean): void {
+  if (coachSpeechLocked === locked) return;
+  coachSpeechLocked = locked;
+  for (const fn of lockListeners) fn(locked);
+}
+
+/** Corta la voz del coach (y cualquier TTS) y libera el bloqueo de avisos. */
+export function forceStopCoachSpeech(): void {
+  setCoachSpeechLock(false);
+  if (!speechSupported()) return;
+  speechSynthesis.cancel();
 }
 
 /** Llamar en el mismo tick que un click/tap (p. ej. al elegir ejercicio). */
@@ -58,32 +85,58 @@ function pickSpanishVoice(): SpeechSynthesisVoice | null {
   );
 }
 
-export function speakText(text: string): void {
-  if (!text || !speechSupported()) return;
+function runUtterance(
+  text: string,
+  opts: { coach: boolean; onDone?: () => void },
+): void {
   const synth = speechSynthesis;
   primeVoices();
   if (synth.paused) synth.resume();
 
-  const run = () => {
+  const start = () => {
     synth.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "es-MX";
     u.rate = 1;
     const voice = pickSpanishVoice();
     if (voice) u.voice = voice;
+    const done = () => {
+      if (opts.coach) setCoachSpeechLock(false);
+      opts.onDone?.();
+    };
+    u.onend = done;
+    u.onerror = done;
     synth.speak(u);
   };
 
   if (isIosSafari() && synth.getVoices().length === 0) {
     const onVoices = () => {
       speechSynthesis.removeEventListener("voiceschanged", onVoices);
-      run();
+      start();
     };
     speechSynthesis.addEventListener("voiceschanged", onVoices);
     synth.getVoices();
-    window.setTimeout(run, 120);
+    window.setTimeout(start, 120);
     return;
   }
 
-  run();
+  start();
+}
+
+/** Avisos de forma / setup — no interrumpen ni hablan si el coach IA está hablando. */
+export function speakAlertText(text: string): void {
+  if (!text || !speechSupported() || coachSpeechLocked) return;
+  runUtterance(text, { coach: false });
+}
+
+/** Respuesta del coach (GPT, resumen de serie, etc.). Bloquea avisos hasta terminar. */
+export function speakCoachText(text: string): void {
+  if (!text || !speechSupported()) return;
+  setCoachSpeechLock(true);
+  runUtterance(text, { coach: true });
+}
+
+/** @deprecated Usa speakAlertText o speakCoachText. */
+export function speakText(text: string): void {
+  speakAlertText(text);
 }

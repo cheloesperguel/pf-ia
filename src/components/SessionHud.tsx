@@ -2,9 +2,15 @@ import type { SessionHudState } from "@/hooks/useExerciseSession";
 
 interface SessionHudProps {
   hud: SessionHudState;
+  /** Modo calibración: sin UI de fase 1. */
+  calibrationMode?: boolean;
   onSkipSetup?: () => void;
   onAskCoach?: () => void;
   coachStatus?: string;
+  /** Texto en vivo / última frase oída por el coach. */
+  hearPreview?: { text: string; interim: boolean } | null;
+  coachSpeaking?: boolean;
+  onStopCoachSpeech?: () => void;
   /** Mensaje mientras carga config o modelo de pose. */
   loadingMessage?: string | null;
 }
@@ -16,12 +22,16 @@ function formatAngle(phaseAngle: number | undefined): string {
 
 export function SessionHud({
   hud,
+  calibrationMode = false,
   onSkipSetup,
   onAskCoach,
   coachStatus,
+  hearPreview,
+  coachSpeaking = false,
+  onStopCoachSpeech,
   loadingMessage,
 }: SessionHudProps) {
-  const inSetup = hud.phase === "setup";
+  const inSetup = !calibrationMode && hud.phase === "setup";
   const angleStr = formatAngle(hud.phaseAngle);
   const holdProgress = Number.isFinite(hud.holdProgress) ? hud.holdProgress : 0;
   const holdMs = Number.isFinite(hud.holdMs) ? hud.holdMs : 1500;
@@ -33,9 +43,11 @@ export function SessionHud({
       )}
       <div className="session-hud-top">
         <span className="session-hud-phase">
-          {inSetup
-            ? `FASE 1 — Pose inicial (${hud.positionLabel})`
-            : `FASE 2 — Reps: ${hud.repCount}`}
+          {calibrationMode
+            ? "MODO CALIBRACIÓN — Fase 1 omitida"
+            : inSetup
+              ? `FASE 1 — Pose inicial (${hud.positionLabel})`
+              : `FASE 2 — Reps: ${hud.repCount}`}
         </span>
         {!inSetup && (
           <span className="session-hud-angle">
@@ -102,7 +114,7 @@ export function SessionHud({
         </>
       )}
 
-      {hud.workout?.active && (
+      {!calibrationMode && hud.workout?.active && (
         <div className="session-hud-workout">
           <strong>{hud.workout.displayName}</strong>
           <span>
@@ -141,7 +153,25 @@ export function SessionHud({
       {coachStatus && (
         <p className="session-hud-coach">{coachStatus}</p>
       )}
-      {onAskCoach && hud.phase === "execution" && (
+      {hearPreview?.text && (
+        <p
+          className={`session-hear-preview${hearPreview.interim ? " session-hear-preview--interim" : ""}`}
+          aria-live="polite"
+        >
+          <span className="session-hear-preview-label">Oído:</span>{" "}
+          {hearPreview.text}
+        </p>
+      )}
+      {coachSpeaking && onStopCoachSpeech && (
+        <button
+          type="button"
+          className="btn-stop-coach"
+          onClick={() => onStopCoachSpeech()}
+        >
+          Detener voz IA
+        </button>
+      )}
+      {onAskCoach && hud.phase === "execution" && !coachSpeaking && (
         <button type="button" className="btn-coach" onClick={() => onAskCoach()}>
           Preguntar al entrenador
         </button>
