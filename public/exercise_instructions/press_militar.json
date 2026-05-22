@@ -145,7 +145,7 @@
       "requires": [
         "frontal_view"
       ],
-      "blocks_rep": true,
+      "blocks_rep": false,
       "message": "Asegura que se vean hombros, codos y muñecas de ambos brazos."
     },
     {
@@ -162,7 +162,7 @@
         "frontal_view",
         "visibility_both_arms"
       ],
-      "blocks_rep": true,
+      "blocks_rep": false,
       "message": "Cierra codos hacia la barra: no los abras en cruz a los lados."
     },
     {
