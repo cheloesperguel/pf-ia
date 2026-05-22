@@ -107,7 +107,7 @@
     "min_visibility": 0.36
   },
   "visual": {
-    "wrist_elbow_stack_sin_max": 0.22,
+    "wrist_elbow_stack_sin_max": 0.3,
     "pulse_hz": 2.2,
     "show_elbow_z": true,
     "show_bar_guide": true,
@@ -154,7 +154,7 @@
       "kind": "metric",
       "metric": "elbow_scapular_lateral_frac_max",
       "op": "lte",
-      "value": 0.65,
+      "value": 0.9,
       "phase": "bottom",
       "priority": 3,
       "tts_enabled": false,
