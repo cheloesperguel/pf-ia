@@ -14,6 +14,7 @@ import { usePoseLandmarker } from "@/hooks/usePoseLandmarker";
 import { useSpeech } from "@/hooks/useSpeech";
 import { useVoiceCoach } from "@/hooks/useVoiceCoach";
 import { setupHoldMs, setupPositionLabel } from "@/lib/exerciseSetup";
+import { speakText } from "@/lib/speechSynth";
 import { loadExercise } from "@/lib/loadConfig";
 import { loadWorkoutProgram } from "@/lib/loadWorkout";
 import { coachHealth, summarizeSetApi } from "@/lib/coachApi";
@@ -76,7 +77,7 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
   const displayName =
     (cfg?.display_name as string) || exerciseId.replace(/_/g, " ");
 
-  const { speak } = useSpeech(ttsOn);
+  const { speak, unlockSpeech, needsUnlock } = useSpeech(ttsOn);
 
   const getSessionContext = useCallback(() => {
     const w = workoutRef.current;
@@ -362,7 +363,28 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
 
       {status && <p className="session-error">{status}</p>}
 
-      <div className="session-stage">
+      {needsUnlock && (
+        <p className="session-voice-hint">
+          En iPhone la voz requiere un toque.{" "}
+          <button
+            type="button"
+            className="btn-voice-unlock"
+            onClick={() => {
+              unlockSpeech();
+              speakText("Voz activada. Puedes entrenar.");
+            }}
+          >
+            Activar voz
+          </button>
+        </p>
+      )}
+
+      <div
+        className="session-stage"
+        onPointerDown={() => {
+          if (needsUnlock) unlockSpeech();
+        }}
+      >
         <video
           ref={videoRef}
           className="session-video"

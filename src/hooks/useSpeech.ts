@@ -1,29 +1,40 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useState } from "react";
+import {
+  isIosSafari,
+  isSpeechUnlocked,
+  speakText,
+  speechSupported,
+  unlockSpeech as unlockSpeechSynth,
+} from "@/lib/speechSynth";
 
 export function useSpeech(enabled: boolean) {
-  const speakingRef = useRef(false);
+  const [voiceReady, setVoiceReady] = useState(
+    () => !isIosSafari() || isSpeechUnlocked(),
+  );
+
+  useEffect(() => {
+    if (isSpeechUnlocked()) setVoiceReady(true);
+  }, []);
+
+  const unlockSpeech = useCallback(() => {
+    if (unlockSpeechSynth()) setVoiceReady(true);
+  }, []);
 
   const speak = useCallback(
     (text: string) => {
-      if (!enabled || !text || typeof speechSynthesis === "undefined") {
+      if (!enabled || !text || !speechSupported()) return;
+      if (isIosSafari() && !voiceReady) {
+        console.warn(
+          "[tts] iOS: pulsa «Activar voz» para oír los avisos del entrenador.",
+        );
         return;
       }
-      if (speakingRef.current) return;
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = "es-MX";
-      u.rate = 1;
-      speakingRef.current = true;
-      u.onend = () => {
-        speakingRef.current = false;
-      };
-      u.onerror = () => {
-        speakingRef.current = false;
-      };
-      speechSynthesis.cancel();
-      speechSynthesis.speak(u);
+      speakText(text);
     },
-    [enabled],
+    [enabled, voiceReady],
   );
 
-  return { speak };
+  const needsUnlock = enabled && isIosSafari() && !voiceReady;
+
+  return { speak, unlockSpeech, needsUnlock };
 }

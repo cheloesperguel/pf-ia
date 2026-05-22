@@ -28,7 +28,11 @@ export async function coachHealth(): Promise<boolean> {
 
 export async function transcribeAudio(blob: Blob): Promise<string> {
   const fd = new FormData();
-  fd.append("file", blob, "utterance.webm");
+  const ext =
+    blob.type.includes("mp4") || blob.type.includes("aac")
+      ? "utterance.m4a"
+      : "utterance.webm";
+  fd.append("file", blob, ext);
   const res = await fetch(`${API_BASE}/api/coach/transcribe`, {
     method: "POST",
     body: fd,

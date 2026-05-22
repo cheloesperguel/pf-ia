@@ -113,6 +113,26 @@
   font-size: 0.85rem;
 }
 
+.session-voice-hint {
+  margin: 0;
+  padding: 0.5rem 0.85rem;
+  background: #1e3a2f;
+  color: #bbf7d0;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.btn-voice-unlock {
+  margin-left: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid #4ade80;
+  background: #14532d;
+  color: #ecfdf5;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
 .session-stage {
   flex: 1;
   display: flex;

@@ -19,13 +19,27 @@ export interface VoiceCoachOptions {
   executionActive: boolean;
 }
 
+function pickRecorderMime(): string {
+  const candidates = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/aac",
+  ];
+  for (const m of candidates) {
+    if (MediaRecorder.isTypeSupported(m)) return m;
+  }
+  return "";
+}
+
 async function captureAudioSeconds(seconds: number): Promise<Blob | null> {
   if (!navigator.mediaDevices?.getUserMedia) return null;
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-    ? "audio/webm;codecs=opus"
-    : "audio/webm";
-  const rec = new MediaRecorder(stream, { mimeType: mime });
+  const mime = pickRecorderMime();
+  const rec = mime
+    ? new MediaRecorder(stream, { mimeType: mime })
+    : new MediaRecorder(stream);
+  const outType = mime || rec.mimeType || "audio/mp4";
   const chunks: Blob[] = [];
   rec.ondataavailable = (e) => {
     if (e.data.size > 0) chunks.push(e.data);
@@ -33,7 +47,7 @@ async function captureAudioSeconds(seconds: number): Promise<Blob | null> {
   return new Promise((resolve) => {
     rec.onstop = () => {
       stream.getTracks().forEach((t) => t.stop());
-      resolve(chunks.length ? new Blob(chunks, { type: mime }) : null);
+      resolve(chunks.length ? new Blob(chunks, { type: outType }) : null);
     };
     rec.start(200);
     setTimeout(() => {

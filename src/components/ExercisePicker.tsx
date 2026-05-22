@@ -1,3 +1,5 @@
+import { unlockSpeech } from "@/lib/speechSynth";
+
 interface ExercisePickerProps {
   onSelect: (exerciseId: string) => void;
 }
@@ -31,7 +33,10 @@ export function ExercisePicker({ onSelect }: ExercisePickerProps) {
               type="button"
               className="picker-btn"
               disabled={"disabled" in ex && ex.disabled}
-              onClick={() => onSelect(ex.id)}
+              onClick={() => {
+                unlockSpeech();
+                onSelect(ex.id);
+              }}
             >
               <span className="picker-btn-title">{ex.label}</span>
               <span className="picker-btn-hint">{ex.hint}</span>
