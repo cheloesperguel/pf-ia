@@ -100,8 +100,8 @@
   },
   "rep_detection": {
     "elbow_angle_metric": "elbow_angle_min_deg",
-    "top_min_deg": 152,
-    "bottom_max_deg": 100
+    "top_min_deg": 145,
+    "bottom_max_deg": 105
   },
   "arms_visibility": {
     "min_visibility": 0.36
