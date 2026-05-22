@@ -12,13 +12,17 @@ import {
 } from "@/hooks/useExerciseSession";
 import { usePoseLandmarker } from "@/hooks/usePoseLandmarker";
 import { useSpeech } from "@/hooks/useSpeech";
+import { useVoiceCoach } from "@/hooks/useVoiceCoach";
 import { loadExercise } from "@/lib/loadConfig";
+import { loadWorkoutProgram } from "@/lib/loadWorkout";
+import { coachHealth, summarizeSetApi } from "@/lib/coachApi";
 import {
   loadPoseSettingsBundle,
   resolvePoseModel,
   type LandmarkerOptions,
   type PoseSettingsBundle,
 } from "@/lib/settingsPose";
+import { WorkoutGuide } from "@/lib/workoutGuide";
 
 interface SessionViewProps {
   exerciseId: string;
@@ -42,10 +46,13 @@ const EMPTY_HUD: SessionHudState = {
   viewOk: false,
   trackingOk: false,
   noPose: true,
+  workout: null,
+  coachStatus: "",
 };
 
 export function SessionView({ exerciseId, onBack }: SessionViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const workoutRef = useRef<WorkoutGuide | null>(null);
   const [cfg, setCfg] = useState<Record<string, unknown> | null>(null);
   const [poseBundle, setPoseBundle] = useState<PoseSettingsBundle | null>(null);
   const [landmarkerOpts, setLandmarkerOpts] = useState<LandmarkerOptions | null>(
@@ -54,14 +61,57 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [fps, setFps] = useState(0);
   const [hud, setHud] = useState<SessionHudState>(EMPTY_HUD);
+  const [coachStatus, setCoachStatus] = useState("");
 
   const ttsCfg = (cfg?.tts ?? {}) as Record<string, unknown>;
   const ttsOn = Boolean(ttsCfg.enabled !== false);
+  const vcCfg = (cfg?.voice_coach ?? {}) as Record<string, unknown>;
+  const voiceCoachOn = Boolean(vcCfg.enabled !== false);
+  const displayName =
+    (cfg?.display_name as string) || exerciseId.replace(/_/g, " ");
+
   const { speak } = useSpeech(ttsOn);
+
+  const getSessionContext = useCallback(() => {
+    const w = workoutRef.current;
+    const entrenamiento: Record<string, unknown> = {};
+    if (w) {
+      entrenamiento.programa = w.prog.displayName;
+      entrenamiento.serie_actual = w.currentSet;
+      entrenamiento.series_total = w.prog.sets;
+      entrenamiento.reps_serie = w.repsInSet;
+      entrenamiento.reps_meta_serie = w.prog.repsPerSet;
+      entrenamiento.fase_entrenamiento = w.phase;
+    }
+    return {
+      ejercicio: displayName,
+      fase: hud.phase,
+      repeticiones_validas: hud.repCount,
+      alertas_activas: hud.alerts,
+      entrenamiento,
+    };
+  }, [displayName, hud.phase, hud.repCount, hud.alerts]);
+
+  const voice = useVoiceCoach({
+    enabled: voiceCoachOn,
+    exerciseId,
+    exerciseDisplay: displayName,
+    recordSeconds: Number(vcCfg.record_seconds ?? 5),
+    getSessionContext,
+    onSpeak: speak,
+    executionActive: hud.phase === "execution",
+  });
+
+  const listenBlockingRef = useRef(voice.listenBlocking);
+  const classifyFnRef = useRef(voice.classifyFn);
+  listenBlockingRef.current = voice.listenBlocking;
+  classifyFnRef.current = voice.classifyFn;
 
   const { processFrame, skipSetup } = useExerciseSession(cfg, poseBundle, {
     ttsEnabled: ttsOn,
     onSpeak: speak,
+    workoutRef,
+    coachStatus: voice.status || coachStatus,
   });
 
   const {
@@ -76,6 +126,7 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
     facingMode: "user",
     mirror: true,
   });
+
   const {
     detectForVideo,
     loading: poseLoading,
@@ -97,6 +148,36 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
         setPoseBundle(bundle);
         setLandmarkerOpts({ ...bundle.landmarker, poseModel: model });
         setLoadErr(null);
+
+        const prog = await loadWorkoutProgram(exercise);
+        if (cancelled) return;
+        if (prog && ttsOn) {
+          workoutRef.current = new WorkoutGuide(prog, {
+            onSpeak: speak,
+            onListen: (sec) => listenBlockingRef.current(sec),
+            onSummarize: async (errs, setNum) => {
+              if (await coachHealth()) {
+                return summarizeSetApi(
+                  exerciseId,
+                  setNum,
+                  errs.map((e) => ({
+                    rule_id: e.ruleId,
+                    message: e.message,
+                    count: e.count,
+                  })),
+                );
+              }
+              if (!errs.length) {
+                return `Serie ${setNum} bien. Sigue así.`;
+              }
+              return `Serie ${setNum} terminada. Revisa: ${errs[0].message}`;
+            },
+            onStatus: setCoachStatus,
+            classifyFn: (t) => classifyFnRef.current(t),
+          });
+        } else {
+          workoutRef.current = null;
+        }
       } catch (e) {
         if (!cancelled) {
           setLoadErr(
@@ -107,8 +188,9 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
     })();
     return () => {
       cancelled = true;
+      workoutRef.current = null;
     };
-  }, [exerciseId]);
+  }, [exerciseId, speak, ttsOn]);
 
   useEffect(() => {
     void start();
@@ -175,17 +257,19 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
       const now = performance.now();
       if (now - lastHudPush.current > 80) {
         lastHudPush.current = now;
-        setHud(state);
+        setHud({ ...state, coachStatus: voice.status || coachStatus });
       }
     }
   }, [
     camReady,
     cfg,
+    coachStatus,
     detectForVideo,
+    getVideo,
     mirror,
     poseReady,
     processFrame,
-    getVideo,
+    voice.status,
   ]);
 
   useEffect(() => {
@@ -208,10 +292,8 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [camReady, poseReady, cfg, drawLoop]);
+  }, [camReady, drawLoop]);
 
-  const displayName =
-    (cfg?.display_name as string) || exerciseId.replace(/_/g, " ");
   const busy = poseLoading || !landmarkerOpts || !cfg;
   const status = loadErr || camError || poseError;
 
@@ -243,7 +325,14 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
           playsInline
         />
         <canvas ref={canvasRef} className="session-canvas" />
-        {!busy && <SessionHud hud={hud} onSkipSetup={handleSkipSetup} />}
+        {!busy && (
+          <SessionHud
+            hud={hud}
+            onSkipSetup={handleSkipSetup}
+            onAskCoach={voice.apiOk ? voice.askByButton : undefined}
+            coachStatus={voice.status}
+          />
+        )}
       </div>
     </div>
   );

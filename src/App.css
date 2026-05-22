@@ -260,6 +260,40 @@
   cursor: pointer;
 }
 
+.session-hud-workout {
+  margin-top: 0.45rem;
+  padding: 0.4rem 0.5rem;
+  background: rgba(30, 50, 70, 0.75);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.session-hud-rest {
+  color: #7dd3fc;
+  font-weight: 600;
+}
+
+.session-hud-coach {
+  margin: 0.4rem 0 0;
+  font-size: 0.78rem;
+  color: #c4b5fd;
+}
+
+.btn-coach {
+  margin-top: 0.45rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.85rem;
+  border-radius: 8px;
+  border: 1px solid #5b21b6;
+  background: rgba(91, 33, 182, 0.55);
+  color: #ede9fe;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
 .session-hud-status {
   display: flex;
   gap: 0.5rem;

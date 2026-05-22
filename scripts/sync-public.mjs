@@ -1,40 +1,31 @@
 /**
- * Copia configs del repo raíz a public/ para fetch en PWA.
- * Ejecutar antes de dev/build (npm run sync).
+ * Verifica que web/public tenga los datos de la app (ya no copia desde la raíz).
+ * Edita los JSON/MD directamente en web/public/.
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const webRoot = path.resolve(__dirname, "..");
-const repoRoot = path.resolve(webRoot, "..");
-const publicDir = path.join(webRoot, "public");
+const publicDir = path.resolve(__dirname, "..", "public");
 
-function copyFile(src, dest) {
-  fs.mkdirSync(path.dirname(dest), { recursive: true });
-  fs.copyFileSync(src, dest);
-}
+const required = [
+  "exercise_instructions/press_militar.json",
+  "workout_programs/press_4x12.json",
+  "settings_pose.json",
+  "settings_ia.json",
+  "docs/exercises/press_militar.md",
+];
 
-function copyDir(srcDir, destDir) {
-  if (!fs.existsSync(srcDir)) {
-    console.warn(`[sync-public] No existe: ${srcDir}`);
-    return;
-  }
-  fs.mkdirSync(destDir, { recursive: true });
-  for (const name of fs.readdirSync(srcDir)) {
-    if (!name.endsWith(".json")) continue;
-    copyFile(path.join(srcDir, name), path.join(destDir, name));
+let ok = true;
+for (const rel of required) {
+  const p = path.join(publicDir, rel);
+  if (!fs.existsSync(p)) {
+    console.error(`[sync-public] Falta: public/${rel}`);
+    ok = false;
   }
 }
-
-copyDir(
-  path.join(repoRoot, "exercise_instructions"),
-  path.join(publicDir, "exercise_instructions"),
-);
-copyFile(
-  path.join(repoRoot, "settings_pose.json"),
-  path.join(publicDir, "settings_pose.json"),
-);
-
-console.log("[sync-public] exercise_instructions + settings_pose.json → public/");
+if (!ok) {
+  process.exit(1);
+}
+console.log("[sync-public] web/public/ listo para build y despliegue");

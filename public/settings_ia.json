@@ -1,0 +1,132 @@
+{
+  // =============================================================================
+  // settings_ia.json — Configuracion global del coach por voz (OpenAI + Vosk)
+  // Guia larga: docs/settings_ia.md | API key en .env (OPENAI_API_KEY)
+  // Este archivo admite comentarios // y bloques /* */ (JSONC).
+  // =============================================================================
+
+  // version: entero, fijo 1 (reservado para migraciones futuras)
+  "version": 1,
+
+  // profile: nombre del preset en "profiles" que se fusiona encima de la raiz
+  // Valores: "balanced" (solo raiz) | "fast" | "precise" | "anti_hallucination"
+  "profile": "fast",
+
+  // --- OpenAI (cliente HTTP) ---------------------------------------------------
+  "openai": {
+    // timeout_seconds: segundos, rango 5-300 | default 60
+    // Mas bajo = falla antes si la red va lenta; mas alto = mas paciencia
+    "timeout_seconds": 60
+  },
+
+  // --- Whisper (transcripcion de tu pregunta tras "oye entrenador") ------------
+  "whisper": {
+    // model: string | ej. "whisper-1" (modelo de audio OpenAI)
+    "model": "whisper-1",
+    // language: codigo ISO | "es" recomendado para espanol del gym
+    "language": "es"
+  },
+
+  // --- Chat GPT (respuesta del entrenador) -------------------------------------
+  "chat": {
+    // model: string | "gpt-4o-mini" (rapido/barato) o "gpt-4o" (mas capaz/lento)
+    "model": "gpt-4o-mini",
+    // temperature: 0.0-2.0 | default 0.35
+    // Mas bajo = mas literal, menos creatividad/alucinacion | mas alto = mas libre
+    "temperature": 0.35,
+    // max_tokens: 64-4096 | default 700
+    // Mas bajo = respuesta mas corta y rapida (menos TTS) | mas alto = mas detalle
+    "max_tokens": 200,
+    // top_p: 0.0-1.0 | default 1.0 | nucleus sampling; ~0.85 acota divagacion
+    "top_p": 1.0,
+    // frequency_penalty: -2.0 a 2.0 | default 0 | subir (ej. 0.2) reduce repeticiones
+    "frequency_penalty": 0.0,
+    // presence_penalty: -2.0 a 2.0 | default 0 | en coaching suele dejarse en 0
+    "presence_penalty": 0.0
+  },
+
+  // --- RAG (contexto enviado al modelo) ----------------------------------------
+  "rag": {
+    // max_doc_chars: 2000-80000 | default 14000
+    // Caracteres max del Markdown del ejercicio | mas bajo = mas rapido/barato
+    "max_doc_chars": 14000,
+    // include_session_context: true/false
+    // true = envia reps, alertas y metricas en vivo | false = solo el documento MD
+    "include_session_context": true
+  },
+
+  // --- Prompt (comportamiento / alucinaciones) ---------------------------------
+  "prompt": {
+    // strict_grounding: true/false | true = solo MD + sesion; admite "no lo se"
+    "strict_grounding": true,
+    // max_response_sentences_min: entero >= 1 | guia de longitud minima en voz
+    "max_response_sentences_min": 4,
+    // max_response_sentences_max: entero >= min | guia de longitud maxima (TTS)
+    "max_response_sentences_max": 10,
+    // system_extra: string libre | reglas extra anadidas al system prompt (puede ir vacio "")
+    "system_extra": ""
+  },
+
+  // --- Coach proactivo (opcional, fase 2) --------------------------------------
+  "proactive_coach": {
+    // enabled: true/false | avisos hablados sin decir "oye entrenador"
+    "enabled": false,
+    // interval_s: 15-180 | si enabled y use_gpt=false, usa resumen de alertas (settings_pose)
+    "interval_s": 45,
+    // use_gpt: true = GPT periodico (mas lento/caro) | false = plantillas MD + alert_coach
+    "use_gpt": false
+  },
+
+  // --- Voz local (Vosk + microfono, no OpenAI) ---------------------------------
+  "voice": {
+    // wake_phrase: frase de activacion | default "oye entrenador"
+    "wake_phrase": "oye entrenador",
+    // record_seconds: 2.0-15.0 | segundos grabados tras la activacion
+    "record_seconds": 5,
+    // input_device: null = mic default del SO | int = indice | string = parte del nombre ("USB")
+    "input_device": null,
+    // vosk_model_dir: ruta carpeta modelo Vosk espanol (relativa al proyecto)
+    "vosk_model_dir": "models/vosk-model-small-es-0.42"
+  },
+
+  // --- Perfiles (overlays: se aplican encima de los valores de la raiz) --------
+  "profiles": {
+    // fast: prioriza velocidad y respuestas cortas
+    "fast": {
+      "chat": {
+        "model": "gpt-4o-mini",
+        "temperature": 0.25,
+        "max_tokens": 380
+      },
+      "rag": { "max_doc_chars": 8000 },
+      "prompt": { "max_response_sentences_max": 6 }
+    },
+    // precise: mas contexto y modelo mas capaz
+    "precise": {
+      "chat": {
+        "model": "gpt-4o",
+        "temperature": 0.2,
+        "max_tokens": 900,
+        "top_p": 0.9
+      },
+      "rag": { "max_doc_chars": 18000 },
+      "prompt": { "strict_grounding": true, "max_response_sentences_max": 12 }
+    },
+    // anti_hallucination: temperatura baja y grounding estricto
+    "anti_hallucination": {
+      "chat": {
+        "model": "gpt-4o-mini",
+        "temperature": 0.1,
+        "max_tokens": 550,
+        "top_p": 0.85,
+        "frequency_penalty": 0.2
+      },
+      "prompt": {
+        "strict_grounding": true,
+        "max_response_sentences_min": 3,
+        "max_response_sentences_max": 8,
+        "system_extra": "Si no hay evidencia en el documento, responde: «Eso no está en tu material de referencia; consulta con tu entrenador presencial.»"
+      }
+    }
+  }
+}

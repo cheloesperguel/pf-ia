@@ -1,61 +1,43 @@
 # pf-IA — PWA (React)
 
-Cliente web con **Vite + React + TypeScript + MediaPipe Pose Landmarker**.
+Cliente web autocontenido en esta carpeta. **Para subir al servidor, despliega todo `web/`** (ver [`DEPLOY.md`](DEPLOY.md)).
 
-## Requisitos
+## Datos de la app (`public/`)
 
-- Node 20+
-- Misma red Wi‑Fi para probar en el celular (o túnel HTTPS en producción)
+Edita aquí (van incluidos en el build):
+
+| Ruta | Contenido |
+|------|-----------|
+| `public/exercise_instructions/*.json` | Umbrales, reglas, setup, TTS |
+| `public/workout_programs/*.json` | Programas (4×12, etc.) |
+| `public/settings_pose.json` | MediaPipe + reps |
+| `public/settings_ia.json` | Coach GPT (API) |
+| `public/docs/exercises/*.md` | Conocimiento por ejercicio |
+
+La app de escritorio Python en la raíz del repo lee los mismos archivos vía `pf_paths.py`.
 
 ## Comandos
 
 ```bash
 cd web
 npm install
-npm run dev      # sync JSON + servidor en http://0.0.0.0:5173
-npm run build
-npm run preview  # probar build PWA
+npm run dev      # valida public/ + servidor en http://0.0.0.0:5173
+npm run build    # genera dist/ para producción
+npm run preview
 ```
 
-`npm run sync` copia desde el repo raíz:
+## API coach (Python)
 
-- `exercise_instructions/*.json`
-- `settings_pose.json`
-
-Edita esos archivos en la raíz del monorepo; vuelve a ejecutar `sync` o `dev`/`build`.
-
-## Estructura React
-
-```text
-src/
-  App.tsx                 # picker ↔ sesión
-  components/
-    ExercisePicker.tsx
-    SessionView.tsx         # cámara + canvas + pose
-  hooks/
-    useCamera.ts
-    usePoseLandmarker.ts
-  lib/
-    loadConfig.ts         # fetch JSON / JSONC
-    settingsPose.ts
-    poseModel.ts
+```bash
+cd web
+pip install -r api/requirements.txt
+# OPENAI_API_KEY en web/.env o en ../.env
+uvicorn api.main:app --reload --port 8000
 ```
 
-## Portado desde Python (press militar)
+## Estructura `src/`
 
-- `poseMath.ts`, `exerciseSetup.ts`, `alertCoach.ts`, `sessionRules.ts`
-- `useExerciseSession` — setup, reps, validación al fondo, alertas con histéresis
-- TTS básico con Web Speech API (activar en JSON `tts.enabled`)
-
-Pendiente: sentadilla (`squat`), workout guide, coach GPT, silueta de referencia, calibración en web.
-
-Python en la raíz sigue para calibración (`--calibrate`) y coach por voz (fase API).
-
-## Celular
-
-1. `npm run dev` en el PC.
-2. Abre `http://<IP-del-PC>:5173` en el navegador del teléfono.
-3. Acepta permiso de cámara.
-4. Para instalar PWA: “Añadir a pantalla de inicio” (Android) / Compartir → Añadir (iOS).
-
-En producción despliega con **HTTPS** (cámara obligatoria fuera de localhost).
+- `App.tsx` — selector de ejercicio
+- `SessionView.tsx` — cámara, pose, workout, coach
+- `lib/` — poseMath, workoutGuide, alertCoach, …
+- `hooks/` — useCamera, useExerciseSession, useVoiceCoach

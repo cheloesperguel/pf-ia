@@ -3,6 +3,8 @@ import type { SessionHudState } from "@/hooks/useExerciseSession";
 interface SessionHudProps {
   hud: SessionHudState;
   onSkipSetup?: () => void;
+  onAskCoach?: () => void;
+  coachStatus?: string;
 }
 
 function formatAngle(phaseAngle: number | undefined): string {
@@ -10,7 +12,12 @@ function formatAngle(phaseAngle: number | undefined): string {
   return Number.isFinite(n) ? `${n.toFixed(0)}°` : "—";
 }
 
-export function SessionHud({ hud, onSkipSetup }: SessionHudProps) {
+export function SessionHud({
+  hud,
+  onSkipSetup,
+  onAskCoach,
+  coachStatus,
+}: SessionHudProps) {
   const inSetup = hud.phase === "setup";
   const angleStr = formatAngle(hud.phaseAngle);
   const holdProgress = Number.isFinite(hud.holdProgress) ? hud.holdProgress : 0;
@@ -89,11 +96,50 @@ export function SessionHud({ hud, onSkipSetup }: SessionHudProps) {
         </>
       )}
 
+      {hud.workout?.active && (
+        <div className="session-hud-workout">
+          <strong>{hud.workout.displayName}</strong>
+          <span>
+            Serie {hud.workout.currentSet}/{hud.workout.totalSets}
+          </span>
+          {hud.workout.phase === "set_active" && (
+            <span>
+              Reps: {hud.workout.repsInSet}/{hud.workout.repsPerSet}
+            </span>
+          )}
+          {hud.workout.phase === "rest" && (
+            <span className="session-hud-rest">
+              Descanso{" "}
+              {Math.ceil(hud.workout.restSecondsLeft)}s · siguiente serie{" "}
+              {hud.workout.currentSet + 1}
+            </span>
+          )}
+          {hud.workout.phase === "rest_prompt" && (
+            <span className="session-hud-rest">Di LISTO o «otro minuto»</span>
+          )}
+          {hud.workout.phase === "done" && (
+            <span className="session-hud-ok">Programa completado</span>
+          )}
+          {hud.workout.hudNote && (
+            <span className="session-hud-overflow">{hud.workout.hudNote}</span>
+          )}
+        </div>
+      )}
+
       <div className="session-hud-status">
         <span className={hud.viewOk ? "ok" : "bad"}>Vista</span>
         <span className={hud.trackingOk ? "ok" : "bad"}>Brazos</span>
         {hud.noPose && <span className="bad">Sin pose</span>}
       </div>
+
+      {coachStatus && (
+        <p className="session-hud-coach">{coachStatus}</p>
+      )}
+      {onAskCoach && hud.phase === "execution" && (
+        <button type="button" className="btn-coach" onClick={() => onAskCoach()}>
+          Preguntar al entrenador
+        </button>
+      )}
     </div>
   );
 }

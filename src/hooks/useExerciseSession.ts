@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, type RefObject } from "react";
 import type { LandmarkLike } from "@/lib/poseLandmarks";
 import {
   AlertCoach,
@@ -21,6 +21,7 @@ import {
   collectAlertItems,
   validateBottomSnapshot,
 } from "@/lib/sessionRules";
+import type { WorkoutGuide, WorkoutHudSnapshot } from "@/lib/workoutGuide";
 
 export interface SessionHudState {
   phase: "setup" | "execution";
@@ -39,6 +40,8 @@ export interface SessionHudState {
   viewOk: boolean;
   trackingOk: boolean;
   noPose: boolean;
+  workout: WorkoutHudSnapshot | null;
+  coachStatus: string;
 }
 
 const NO_POSE: [string, string] = [
@@ -59,7 +62,12 @@ function smoothEma(
 export function useExerciseSession(
   cfg: Record<string, unknown> | null,
   poseBundle: PoseSettingsBundle | null,
-  options: { ttsEnabled?: boolean; onSpeak?: (text: string) => void } = {},
+  options: {
+    ttsEnabled?: boolean;
+    onSpeak?: (text: string) => void;
+    workoutRef?: RefObject<WorkoutGuide | null>;
+    coachStatus?: string;
+  } = {},
 ) {
   const setupGateRef = useRef<SetupGate | null>(null);
   const alertEngineRef = useRef<AlertCoach | null>(null);
@@ -94,14 +102,21 @@ export function useExerciseSession(
     viewOk: false,
     trackingOk: false,
     noPose: true,
+    workout: null,
+    coachStatus: "",
   });
 
   const rejectUntilRef = useRef(0);
+  const workoutArmedRef = useRef(false);
 
   const speakRef = useRef(options.onSpeak);
   const ttsEnabledRef = useRef(options.ttsEnabled ?? false);
+  const workoutRef = useRef(options.workoutRef?.current ?? null);
+  const coachStatusRef = useRef(options.coachStatus ?? "");
   speakRef.current = options.onSpeak;
   ttsEnabledRef.current = options.ttsEnabled ?? false;
+  workoutRef.current = options.workoutRef?.current ?? null;
+  coachStatusRef.current = options.coachStatus ?? "";
 
   useEffect(() => {
     if (!cfg || !poseBundle) return;
@@ -120,6 +135,7 @@ export function useExerciseSession(
       lastRepMs: -1e9,
     };
     rejectUntilRef.current = 0;
+    workoutArmedRef.current = false;
     const sp = (cfg.setup_pose ?? {}) as Record<string, unknown>;
     const tts = (sp.tts ?? {}) as Record<string, unknown>;
     hudRef.current.displayName = String(
@@ -176,6 +192,17 @@ export function useExerciseSession(
       hud.holdProgress = gate.holdProgress();
       hud.rejectFlash = performance.now() / 1000 < rejectUntilRef.current;
       hud.repCount = rep.repCount;
+      hud.coachStatus = coachStatusRef.current;
+      const workout = workoutRef.current;
+      if (workout && gate.phase === "execution") {
+        workout.tick();
+        if (workout.needsRepAlign) {
+          workout.consumeRepAlign(rep.repCount);
+        }
+        hud.workout = workout.hudSnapshot(rep.repCount);
+      } else {
+        hud.workout = workout?.hudSnapshot(rep.repCount) ?? null;
+      }
 
       if (!norm?.length || !world?.length) {
         hud.noPose = true;
@@ -261,6 +288,10 @@ export function useExerciseSession(
           if (ttsEnabledRef.current && speakRef.current) {
             speakRef.current(go);
           }
+          if (workout && !workoutArmedRef.current) {
+            workout.startAfterSetup();
+            workoutArmedRef.current = true;
+          }
         }
         hud.setupFailures = failures;
         hud.alerts = failures.map(([, m]) => m);
@@ -299,8 +330,15 @@ export function useExerciseSession(
           if (line) speakRef.current(line);
         }
 
+        if (workout?.isSetActive) {
+          workout.noteAlerts(stable);
+        }
+
         const repCountingOk =
-          trackingOk && viewOk && !Number.isNaN(phaseAngle);
+          trackingOk &&
+          viewOk &&
+          !Number.isNaN(phaseAngle) &&
+          (!workout || workout.allowsRepCounting());
         if (repCountingOk) {
           const atTop = phaseAngle >= topMin;
           const atDeep = phaseAngle <= bottomMax;
@@ -334,7 +372,15 @@ export function useExerciseSession(
                 rep.repCount += 1;
                 rep.lastRepMs = timestampMs;
                 hud.repCount = rep.repCount;
-                if (ttsEnabledRef.current && speakRef.current) {
+                if (workout) {
+                  const done = workout.onSessionRepCount(rep.repCount);
+                  if (ttsEnabledRef.current && speakRef.current) {
+                    speakRef.current(String(workout.repsInSet));
+                  }
+                  if (done) {
+                    hud.workout = workout.hudSnapshot(rep.repCount);
+                  }
+                } else if (ttsEnabledRef.current && speakRef.current) {
                   speakRef.current(String(rep.repCount));
                 }
               } else {
@@ -343,6 +389,12 @@ export function useExerciseSession(
                   (fid) =>
                     String(ruleById[fid]?.message ?? fid),
                 );
+                if (workout?.isSetActive) {
+                  workout.noteRepReject(
+                    failedIds,
+                    hud.rejectMessages,
+                  );
+                }
               }
               rep.deepAchieved = false;
               rep.bestBottom = null;
@@ -375,6 +427,11 @@ export function useExerciseSession(
   const skipSetup = useCallback(() => {
     setupGateRef.current?.skip();
     hudRef.current.phase = "execution";
+    const workout = workoutRef.current;
+    if (workout && !workoutArmedRef.current) {
+      workout.startAfterSetup();
+      workoutArmedRef.current = true;
+    }
   }, []);
 
   return { processFrame, skipSetup };
