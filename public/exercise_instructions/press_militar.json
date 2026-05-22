@@ -107,7 +107,7 @@
     "min_visibility": 0.36
   },
   "visual": {
-    "wrist_elbow_stack_sin_max": 0.17,
+    "wrist_elbow_stack_sin_max": 0.22,
     "pulse_hz": 2.2,
     "show_elbow_z": true,
     "show_bar_guide": true,
@@ -180,7 +180,7 @@
         "visibility_both_arms"
       ],
       "blocks_rep": false,
-      "message": "Lleva los codos un poco hacia adelante (rack), no pegados al torso de lado."
+      "message": "Lleva los codos un poco hacia adelante, no pegados al torso de lado."
     },
     {
       "id": "wrist_elbow_stack",
