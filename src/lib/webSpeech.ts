@@ -15,6 +15,7 @@ export function getSpeechRecognitionCtor():
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
+
 export type ListenPreviewFn = (text: string, interim: boolean) => void;
 
 /** Texto acumulado de un evento SpeechRecognition (final + provisional). */
