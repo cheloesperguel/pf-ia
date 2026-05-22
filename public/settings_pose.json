@@ -1,0 +1,86 @@
+{
+  // =============================================================================
+  // settings_pose.json — MediaPipe Pose Landmarker + precision de reps
+  // Guia: docs/settings_pose.md | Comentarios // admitidos (JSONC)
+  // =============================================================================
+
+  "version": 1,
+
+  // profile: preset en "profiles" | balanced | stable_tracking | fast_preview
+  "profile": "balanced",
+
+  "landmarker": {
+    // pose_model: lite | full | heavy (MediaPipe Pose Landmarker bundles)
+    "pose_model": "heavy",
+    // min_pose_detection_confidence: 0.0-1.0 | default 0.5
+    "min_pose_detection_confidence": 0.5,
+    // min_pose_presence_confidence: 0.0-1.0 | subir reduce landmarks inventados
+    "min_pose_presence_confidence": 0.55,
+    // min_tracking_confidence: 0.0-1.0 | subir reduce jitter entre frames
+    "min_tracking_confidence": 0.6,
+    // num_poses: entero >= 1 | press militar = 1
+    "num_poses": 1,
+    // output_segmentation_masks: true/false | true = mas CPU, poco util en press sentado
+    "output_segmentation_masks": false
+  },
+
+  "rep": {
+    // rep_hold_frames_top: 1-20 | frames seguidos en "arriba" antes de contar rep
+    "rep_hold_frames_top": 3,
+    // rep_hold_frames_bottom: 1-20 | frames seguidos en "abajo" antes de marcar fondo
+    "rep_hold_frames_bottom": 3,
+    // min_landmark_visibility_rep: 0.3-0.7 | hombro+codo+muñeca visibles para angulo de rep
+    "min_landmark_visibility_rep": 0.38,
+    // rep_pause_msg_frames: frames sin señal fiable antes de mostrar "reps en pausa"
+    "rep_pause_msg_frames": 8,
+    // rep_pause_reset_frames: frames sin señal antes de borrar el ciclo bajada/subida
+    "rep_pause_reset_frames": 24,
+    // smoothing_alpha_default: 0.1-0.6 | EMA si el JSON del ejercicio no define smoothing_alpha
+    "smoothing_alpha_default": 0.35
+  },
+
+  "alerts": {
+    // alert_hold_frames: 1-30 | frames seguidos con violacion antes de mostrar aviso estable
+    "alert_hold_frames": 10,
+    // alert_clear_hold_frames: 1-30 | frames sin violacion para quitar aviso del HUD
+    "alert_clear_hold_frames": 8,
+    // alert_tts_cooldown_s: segundos entre TTS del mismo rule_id
+    "alert_tts_cooldown_s": 18,
+    // alert_max_tts_per_minute: tope global de frases habladas por minuto
+    "alert_max_tts_per_minute": 4,
+    // hud_max_lines: lineas de aviso en pantalla (resto: "+N avisos (H)")
+    "hud_max_lines": 2,
+    // alert_speak_on: enter = al entrar en violacion estable | summary = resumen periodico
+    "alert_speak_on": "enter",
+    // alert_summary_interval_s: si speak_on=summary, intervalo entre resumenes
+    "alert_summary_interval_s": 25,
+    // use_coaching_text: true = TTS desde coaching del MD cuando existe
+    "use_coaching_text": true
+  },
+
+  "profiles": {
+    "stable_tracking": {
+      "landmarker": {
+        "pose_model": "heavy",
+        "min_pose_presence_confidence": 0.6,
+        "min_tracking_confidence": 0.65
+      },
+      "rep": {
+        "rep_hold_frames_top": 4,
+        "rep_hold_frames_bottom": 4,
+        "min_landmark_visibility_rep": 0.5
+      }
+    },
+    "fast_preview": {
+      "landmarker": {
+        "pose_model": "lite",
+        "min_tracking_confidence": 0.5
+      },
+      "rep": {
+        "rep_hold_frames_top": 2,
+        "rep_hold_frames_bottom": 2,
+        "min_landmark_visibility_rep": 0.4
+      }
+    }
+  }
+}

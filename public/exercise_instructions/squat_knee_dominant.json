@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "movement": "squat",
+  "tts": {
+    "enabled": true,
+    "voice": "es-MX-DaliaNeural",
+    "start_phrase": "Partamos."
+  },
+  "setup_pose": {
+    "enabled": true,
+    "hold_ms": 1200,
+    "help_key": "setup_stand",
+    "tts": {
+      "intro": "Fase uno: de pie, de perfil a la cámara, pierna de referencia visible.",
+      "go": "¡Partida! Puedes sentarte."
+    },
+    "checks": [
+      {
+        "id": "setup_profile",
+        "kind": "profile",
+        "message": "Colócate de perfil, de lado a la cámara."
+      },
+      {
+        "id": "setup_leg",
+        "kind": "visibility_ref_leg",
+        "message": "Debe verse cadera, rodilla y tobillo de la pierna hacia la cámara."
+      },
+      {
+        "id": "setup_stand",
+        "kind": "metric",
+        "metric": "knee_angle_ref_deg",
+        "op": "gte",
+        "value": 150,
+        "message": "Ponte de pie con las piernas casi extendidas antes de empezar."
+      }
+    ]
+  },
+  "exercise_id": "squat_knee_dominant",
+  "display_name": "Sentadilla dominante de rodilla",
+  "pose_model": "full",
+  "min_rep_interval_ms": 650,
+  "smoothing_alpha": 0.35,
+  "rep_detection": {
+    "knee_angle_metric": "knee_angle_ref_deg",
+    "top_min_deg": 152,
+    "bottom_max_deg": 105
+  },
+  "ref_leg_visibility": {
+    "core_min_visibility": 0.36,
+    "foot_min_visibility": 0.2
+  },
+  "profile": {
+    "min_shoulder_pair_visibility": 0.35,
+    "min_hip_pair_visibility": 0.35,
+    "max_abs_shoulder_width_norm": 0.14,
+    "both_narrow_max_shoulder_norm": 0.12,
+    "both_narrow_max_hip_norm": 0.14,
+    "max_shoulder_hip_width_ratio": 0.72,
+    "ratio_hip_width_floor": 0.025
+  },
+  "rules": [
+    {
+      "id": "profile_view",
+      "kind": "profile",
+      "blocks_rep": true,
+      "message": "Colócate de perfil: de lado a la cámara."
+    },
+    {
+      "id": "ref_leg_chain",
+      "kind": "visibility_ref_leg",
+      "blocks_rep": true,
+      "message": "Acerca la pierna de trabajo a cámara: deben verse cadera, rodilla y tobillo; punta de pie o talón."
+    },
+    {
+      "id": "hip_below_knee",
+      "kind": "metric",
+      "metric": "hip_below_knee_margin_m",
+      "op": "gte",
+      "value": 0.02,
+      "phase": "bottom",
+      "blocks_rep": true,
+      "message": "Baja más: la cadera debe quedar por debajo de la rodilla."
+    },
+    {
+      "id": "knee_over_toes",
+      "kind": "metric",
+      "metric": "knee_ahead_of_ankle_m",
+      "op": "gte",
+      "value": 0.01,
+      "phase": "bottom",
+      "blocks_rep": true,
+      "message": "Lleva la rodilla más al frente, por delante del tobillo."
+    }
+  ]
+}
