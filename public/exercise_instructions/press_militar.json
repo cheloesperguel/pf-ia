@@ -8,7 +8,8 @@
     "start_phrase": "Partamos."
   },
   "voice_coach": {
-    "enabled": true
+    "enabled": true,
+    "show_hud_status": false
   },
   "workout": {
     "enabled": true,

@@ -115,6 +115,8 @@ export interface WorkoutHudSnapshot {
   repsInSet: number;
   repsPerSet: number;
   restSecondsLeft: number;
+  /** Duración total del descanso actual (para barra de progreso). */
+  restSecondsTotal: number;
   hudNote: string;
   statusText: string;
   voiceBusy: boolean;
@@ -139,6 +141,7 @@ export class WorkoutGuide {
   repsInSet = 0;
   private sessionRepBase = 0;
   private restEndAt = 0;
+  private restDurationSeconds = 60;
   private setErrors: SetErrorRecord[] = [];
   private errorIndex = new Map<string, SetErrorRecord>();
   voiceBusy = false;
@@ -243,7 +246,8 @@ export class WorkoutGuide {
 
   private async finishSet(): Promise<void> {
     this.phase = "rest";
-    this.restEndAt = performance.now() / 1000 + this.prog.restSeconds;
+    this.restDurationSeconds = this.prog.restSeconds;
+    this.restEndAt = performance.now() / 1000 + this.restDurationSeconds;
     this.deps.onStatus?.("Descanso");
     const errs = [...this.setErrors];
     if (errs.length) {
@@ -301,7 +305,8 @@ export class WorkoutGuide {
       return;
     }
     if (action === "more_rest") {
-      this.restEndAt = performance.now() / 1000 + this.prog.extraRestSeconds;
+      this.restDurationSeconds = this.prog.extraRestSeconds;
+      this.restEndAt = performance.now() / 1000 + this.restDurationSeconds;
       this.phase = "rest";
       this.deps.onSpeak(this.prog.extraRestTts);
       this.hudNote = `+${this.prog.extraRestSeconds}s de descanso`;
@@ -321,13 +326,15 @@ export class WorkoutGuide {
       );
       this.beginSet();
     } else if (action === "more_rest") {
-      this.restEndAt = performance.now() / 1000 + this.prog.extraRestSeconds;
+      this.restDurationSeconds = this.prog.extraRestSeconds;
+      this.restEndAt = performance.now() / 1000 + this.restDurationSeconds;
       this.phase = "rest";
       this.deps.onSpeak(this.prog.extraRestTts);
       this.hudNote = `+${this.prog.extraRestSeconds}s de descanso`;
     } else {
       this.phase = "rest";
-      this.restEndAt = performance.now() / 1000 + 8;
+      this.restDurationSeconds = 8;
+      this.restEndAt = performance.now() / 1000 + this.restDurationSeconds;
       this.hudNote = "Di listo o pide otro minuto";
     }
   }
@@ -335,8 +342,10 @@ export class WorkoutGuide {
   hudSnapshot(_totalReps: number): WorkoutHudSnapshot {
     const now = performance.now() / 1000;
     let restSecondsLeft = 0;
+    let restSecondsTotal = 0;
     if (this.phase === "rest") {
       restSecondsLeft = Math.max(0, this.restEndAt - now);
+      restSecondsTotal = this.restDurationSeconds;
     }
     const statusText = {
       intro: "Preparando programa…",
@@ -354,6 +363,7 @@ export class WorkoutGuide {
       repsInSet: this.repsInSet,
       repsPerSet: this.prog.repsPerSet,
       restSecondsLeft,
+      restSecondsTotal,
       hudNote: this.hudNote,
       statusText,
       voiceBusy: this.voiceBusy,

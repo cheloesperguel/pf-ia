@@ -93,6 +93,7 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
   const ttsOn = Boolean(ttsCfg.enabled !== false);
   const vcCfg = (cfg?.voice_coach ?? {}) as Record<string, unknown>;
   const voiceCoachOn = Boolean(vcCfg.enabled !== false);
+  const showCoachHud = vcCfg.show_hud_status === true;
   const displayName =
     (cfg?.display_name as string) || exerciseId.replace(/_/g, " ");
 
@@ -121,6 +122,7 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
 
   const voice = useVoiceCoach({
     enabled: voiceCoachOn,
+    showHudStatus: showCoachHud,
     exerciseId,
     exerciseDisplay: displayName,
     recordSeconds: Number(vcCfg.record_seconds ?? 5),
@@ -138,7 +140,7 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
     ttsEnabled: ttsOn && !calOpen,
     onSpeak: speakAlert,
     workoutRef,
-    coachStatus: voice.status || coachStatus,
+    coachStatus: showCoachHud ? voice.status || coachStatus : "",
     cfgRevision,
   });
 
@@ -471,8 +473,8 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
           onAskCoach={
             calOpen || !voice.voiceAvailable ? undefined : voice.askByButton
           }
-          coachStatus={voice.status || coachStatus}
-          hearPreview={voice.hearPreview}
+          coachStatus={showCoachHud ? voice.status || coachStatus : undefined}
+          hearPreview={showCoachHud ? voice.hearPreview : null}
           coachSpeaking={coachSpeaking || voice.state === "speaking"}
           onStopCoachSpeech={() => {
             stopCoachSpeech();

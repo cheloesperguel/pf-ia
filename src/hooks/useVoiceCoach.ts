@@ -27,6 +27,8 @@ export type VoiceBackend = "openai" | "api" | "browser" | "none";
 
 export interface VoiceCoachOptions {
   enabled: boolean;
+  /** Muestra en HUD «OpenAI directo», micrófono y «Oído:». Por defecto false. */
+  showHudStatus?: boolean;
   exerciseId: string;
   exerciseDisplay: string;
   wakePhrase?: string;
@@ -110,6 +112,7 @@ function statusLabel(
 export function useVoiceCoach(options: VoiceCoachOptions) {
   const {
     enabled,
+    showHudStatus = false,
     exerciseId,
     exerciseDisplay,
     wakePhrase = "oye entrenador",
@@ -132,23 +135,29 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
   const backendRef = useRef<VoiceBackend>("none");
   const coachOkRef = useRef(false);
   const useOpenaiRef = useRef(false);
+  const showHudRef = useRef(showHudStatus);
   const stateRef = useRef<CoachState>("unavailable");
 
   useEffect(() => {
     backendRef.current = backend;
     coachOkRef.current = coachOk;
     useOpenaiRef.current = openaiDirectConfigured();
+    showHudRef.current = showHudStatus;
     stateRef.current = state;
-  }, [backend, coachOk, state]);
+  }, [backend, coachOk, showHudStatus, state]);
+
+  const setHudStatus = useCallback((msg: string) => {
+    setStatus(showHudRef.current ? msg : "");
+  }, []);
 
   useEffect(() => {
     return subscribeCoachSpeechLock((locked) => {
       if (!locked && stateRef.current === "speaking") {
         setState("idle");
-        setStatus(statusLabel(backendRef.current, wakePhrase));
+        setHudStatus(statusLabel(backendRef.current, wakePhrase));
       }
     });
-  }, [wakePhrase]);
+  }, [setHudStatus, wakePhrase]);
 
   const clearPreviewLinger = useCallback(() => {
     if (previewLingerRef.current) {
@@ -159,6 +168,7 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
 
   const setLivePreview = useCallback(
     (text: string, interim: boolean) => {
+      if (!showHudRef.current) return;
       clearPreviewLinger();
       setHearPreview({ text, interim });
     },
@@ -167,6 +177,7 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
 
   const lingerPreview = useCallback(
     (text: string) => {
+      if (!showHudRef.current) return;
       clearPreviewLinger();
       if (!text.trim()) {
         setHearPreview(null);
@@ -193,7 +204,7 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
       setBackend("none");
       setCoachOk(false);
       setState("unavailable");
-      setStatus("Coach desactivado en JSON");
+      setHudStatus("Coach desactivado en JSON");
       return;
     }
     void (async () => {
@@ -211,6 +222,10 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
       setCoachOk(gptOk);
       setBackend(b);
       setState(b === "none" ? "unavailable" : "idle");
+      if (!showHudRef.current) {
+        setHudStatus("");
+        return;
+      }
       let base =
         openaiDirectConfigured() && !gptOk
           ? "Clave OpenAI rechazada. Revisa VITE_OPENAI_API_KEY en web/.env y reinicia npm run dev"
@@ -220,9 +235,9 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
         const hint = formatMicHint(mic, b);
         if (hint) base = `${base}\n${hint}`;
       }
-      setStatus(base);
+      setHudStatus(base);
     })();
-  }, [enabled, wakePhrase, speechOk]);
+  }, [enabled, setHudStatus, wakePhrase, speechOk]);
 
   const transcribe = useCallback(
     async (seconds: number): Promise<string> => {
@@ -250,7 +265,7 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
       if (backendRef.current === "none") return "";
       listenActiveRef.current = true;
       setState("workout_listen");
-      setStatus("Di listo o pide otro minuto…");
+      setHudStatus("Di listo o pide otro minuto…");
       let heard = "";
       try {
         heard = await transcribe(seconds);
@@ -260,12 +275,12 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
         return "";
       } finally {
         setState("idle");
-        setStatus(statusLabel(backendRef.current, wakePhrase));
+        setHudStatus(statusLabel(backendRef.current, wakePhrase));
         listenActiveRef.current = false;
         lingerPreview(heard);
       }
     },
-    [lingerPreview, transcribe, wakePhrase],
+    [lingerPreview, setHudStatus, transcribe, wakePhrase],
   );
 
   const answerQuestion = useCallback(
@@ -277,7 +292,7 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
       }
       if (coachOkRef.current && backendRef.current !== "browser") {
         setState("thinking");
-        setStatus("Pensando respuesta…");
+        setHudStatus("Pensando respuesta…");
         try {
           const answer = await askCoachQuestion(
             question,
@@ -289,7 +304,7 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
             return;
           }
           setState("speaking");
-          setStatus("Respondiendo…");
+          setHudStatus("Respondiendo…");
           onSpeak(answer);
         } catch (e) {
           console.warn("[voiceCoach] ask", e);
@@ -308,7 +323,7 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
   const listenAndAnswer = useCallback(async () => {
     listenActiveRef.current = true;
     setState("listening");
-    setStatus("Escuchando tu pregunta…");
+    setHudStatus("Escuchando tu pregunta…");
     let text = "";
     try {
       text = await transcribe(recordSeconds);
@@ -318,7 +333,7 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
     if (!text) {
       onSpeak("No escuché nada. Comprueba permiso de micrófono.");
       setState("idle");
-      setStatus(statusLabel(backendRef.current, wakePhrase));
+      setHudStatus(statusLabel(backendRef.current, wakePhrase));
       setHearPreview(null);
       return;
     }
@@ -329,7 +344,7 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
     } finally {
       busyRef.current = false;
       setState("idle");
-      setStatus(statusLabel(backendRef.current, wakePhrase));
+      setHudStatus(statusLabel(backendRef.current, wakePhrase));
       lingerPreview(text);
     }
   }, [
@@ -337,6 +352,7 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
     lingerPreview,
     onSpeak,
     recordSeconds,
+    setHudStatus,
     transcribe,
     wakePhrase,
   ]);
@@ -432,9 +448,9 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
     forceStopCoachSpeech();
     if (stateRef.current === "speaking") {
       setState("idle");
-      setStatus(statusLabel(backendRef.current, wakePhrase));
+      setHudStatus(statusLabel(backendRef.current, wakePhrase));
     }
-  }, [wakePhrase]);
+  }, [setHudStatus, wakePhrase]);
 
   const voiceAvailable = backend !== "none";
 
