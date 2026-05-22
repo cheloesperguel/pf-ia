@@ -22,37 +22,64 @@ export function usePoseLandmarker(landmarker: LandmarkerOptions | null) {
     setReady(false);
 
     (async () => {
-      try {
-        const vision = await FilesetResolver.forVisionTasks(WASM_CDN);
-        const modelPath = poseModelAssetUrl(landmarker.poseModel);
-        const detector = await PoseLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: modelPath,
-            delegate: "GPU",
-          },
-          runningMode: "VIDEO",
-          numPoses: landmarker.numPoses,
-          minPoseDetectionConfidence: landmarker.minPoseDetectionConfidence,
-          minPosePresenceConfidence: landmarker.minPosePresenceConfidence,
-          minTrackingConfidence: landmarker.minTrackingConfidence,
-          outputSegmentationMasks: landmarker.outputSegmentationMasks,
-        });
-        if (cancelled) {
-          detector.close();
+      const vision = await FilesetResolver.forVisionTasks(WASM_CDN);
+      const modelPath = poseModelAssetUrl(landmarker.poseModel);
+      const baseOpts = {
+        modelAssetPath: modelPath,
+        runningMode: "VIDEO" as const,
+        numPoses: landmarker.numPoses,
+        minPoseDetectionConfidence: landmarker.minPoseDetectionConfidence,
+        minPosePresenceConfidence: landmarker.minPosePresenceConfidence,
+        minTrackingConfidence: landmarker.minTrackingConfidence,
+        outputSegmentationMasks: landmarker.outputSegmentationMasks,
+      };
+
+      let lastErr: unknown;
+      for (const delegate of ["GPU", "CPU"] as const) {
+        try {
+          const detector = await PoseLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: modelPath,
+              delegate,
+            },
+            runningMode: baseOpts.runningMode,
+            numPoses: baseOpts.numPoses,
+            minPoseDetectionConfidence: baseOpts.minPoseDetectionConfidence,
+            minPosePresenceConfidence: baseOpts.minPosePresenceConfidence,
+            minTrackingConfidence: baseOpts.minTrackingConfidence,
+            outputSegmentationMasks: baseOpts.outputSegmentationMasks,
+          });
+          if (cancelled) {
+            detector.close();
+            return;
+          }
+          detectorRef.current = detector;
+          setReady(true);
+          setError(null);
           return;
+        } catch (e) {
+          lastErr = e;
         }
-        detectorRef.current = detector;
-        setReady(true);
-      } catch (e) {
+      }
+
+      if (!cancelled) {
+        setError(
+          lastErr instanceof Error
+            ? lastErr.message
+            : "Error al cargar Pose Landmarker",
+        );
+      }
+    })()
+      .catch((e) => {
         if (!cancelled) {
           setError(
             e instanceof Error ? e.message : "Error al cargar Pose Landmarker",
           );
         }
-      } finally {
+      })
+      .finally(() => {
         if (!cancelled) setLoading(false);
-      }
-    })();
+      });
 
     return () => {
       cancelled = true;

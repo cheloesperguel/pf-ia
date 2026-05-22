@@ -219,7 +219,7 @@ function elbowScapularForwardFracMin(
   return fracs.length ? Math.min(...fracs) : NaN_;
 }
 
-function forearmStackSinNorm(el: LandmarkLike, wr: LandmarkLike): number {
+export function forearmStackSinNorm(el: LandmarkLike, wr: LandmarkLike): number {
   const dx = (wr.x ?? 0) - (el.x ?? 0);
   const dy = (wr.y ?? 0) - (el.y ?? 0);
   const length = Math.hypot(dx, dy);

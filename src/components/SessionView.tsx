@@ -13,6 +13,7 @@ import {
 import { usePoseLandmarker } from "@/hooks/usePoseLandmarker";
 import { useSpeech } from "@/hooks/useSpeech";
 import { useVoiceCoach } from "@/hooks/useVoiceCoach";
+import { setupHoldMs, setupPositionLabel } from "@/lib/exerciseSetup";
 import { loadExercise } from "@/lib/loadConfig";
 import { loadWorkoutProgram } from "@/lib/loadWorkout";
 import { coachHealth, summarizeSetApi } from "@/lib/coachApi";
@@ -22,6 +23,10 @@ import {
   type LandmarkerOptions,
   type PoseSettingsBundle,
 } from "@/lib/settingsPose";
+import {
+  drawPoseStatusBanner,
+  drawSessionVisuals,
+} from "@/lib/sessionVisuals";
 import { WorkoutGuide } from "@/lib/workoutGuide";
 
 interface SessionViewProps {
@@ -36,6 +41,7 @@ const EMPTY_HUD: SessionHudState = {
   repCount: 0,
   phaseAngle: NaN,
   angleLabel: "Ángulo",
+  metrics: {},
   alerts: [],
   alertOverflow: null,
   setupFailures: [],
@@ -114,18 +120,11 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
     coachStatus: voice.status || coachStatus,
   });
 
-  const {
-    videoRef,
-    getVideo,
-    ready: camReady,
-    error: camError,
-    start,
-    stop,
-    mirror,
-  } = useCamera({
-    facingMode: "user",
-    mirror: true,
-  });
+  const { videoRef, getVideo, ready: camReady, error: camError, mirror } =
+    useCamera({
+      facingMode: "user",
+      mirror: true,
+    });
 
   const {
     detectForVideo,
@@ -193,11 +192,30 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
   }, [exerciseId, speak, ttsOn]);
 
   useEffect(() => {
-    void start();
-    return () => stop();
-  }, [start, stop]);
+    if (!cfg) return;
+    setHud((prev) => ({
+      ...prev,
+      displayName:
+        (cfg.display_name as string) || exerciseId.replace(/_/g, " "),
+      positionLabel: setupPositionLabel(cfg),
+      holdMs: setupHoldMs(cfg),
+      angleLabel: String(
+        ((cfg.hud ?? {}) as Record<string, unknown>).angle_label ?? "Ángulo",
+      ),
+    }));
+  }, [cfg, exerciseId]);
 
   const lastHudPush = useRef(0);
+
+  const pushHud = useCallback(
+    (state: SessionHudState) => {
+      const now = performance.now();
+      if (now - lastHudPush.current < 80) return;
+      lastHudPush.current = now;
+      setHud({ ...state, coachStatus: voice.status || coachStatus });
+    },
+    [coachStatus, voice.status],
+  );
 
   const drawLoop = useCallback(() => {
     const el = getVideo();
@@ -228,37 +246,57 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
     }
 
     const ts = performance.now();
-    if (poseReady && cfg) {
-      const result = detectForVideo(el, ts);
-      const norm = result?.landmarks?.[0];
-      const world = result?.worldLandmarks?.[0];
 
-      if (norm?.length) {
-        const utils = new DrawingUtils(ctx);
-        if (mirror) {
-          ctx.save();
-          ctx.translate(w, 0);
-          ctx.scale(-1, 1);
-        }
-        utils.drawConnectors(
-          norm as NormalizedLandmark[],
-          PoseLandmarker.POSE_CONNECTIONS,
-          { color: "#5eead4", lineWidth: 2 },
-        );
-        utils.drawLandmarks(norm as NormalizedLandmark[], {
-          color: "#fbbf24",
-          lineWidth: 1,
-          radius: 3,
-        });
-        if (mirror) ctx.restore();
+    if (!poseReady || poseLoading) {
+      const msg = poseLoading
+        ? "Cargando modelo de pose…"
+        : poseError
+          ? "Pose no disponible"
+          : "Iniciando detección…";
+      drawPoseStatusBanner(ctx, w, h, msg);
+      return;
+    }
+
+    if (!cfg) return;
+
+    const result = detectForVideo(el, ts);
+    const norm = result?.landmarks?.[0];
+    const world = result?.worldLandmarks?.[0];
+
+    if (norm?.length) {
+      const utils = new DrawingUtils(ctx);
+      if (mirror) {
+        ctx.save();
+        ctx.translate(w, 0);
+        ctx.scale(-1, 1);
       }
+      utils.drawConnectors(
+        norm as NormalizedLandmark[],
+        PoseLandmarker.POSE_CONNECTIONS,
+        { color: "#5eead4", lineWidth: 4 },
+      );
+      utils.drawLandmarks(norm as NormalizedLandmark[], {
+        color: "#fbbf24",
+        lineWidth: 2,
+        radius: 5,
+      });
+      if (mirror) ctx.restore();
 
       const state = processFrame(norm, world, ts);
-      const now = performance.now();
-      if (now - lastHudPush.current > 80) {
-        lastHudPush.current = now;
-        setHud({ ...state, coachStatus: voice.status || coachStatus });
-      }
+      drawSessionVisuals(ctx, w, h, mirror, norm, {
+        cfg,
+        phase: state.phase,
+        phaseAngle: state.phaseAngle,
+        angleLabel: state.angleLabel,
+        metrics: state.metrics,
+        tSec: ts / 1000,
+      });
+
+      pushHud(state);
+    } else {
+      drawPoseStatusBanner(ctx, w, h, "Colócate de frente a la cámara");
+      const state = processFrame(undefined, undefined, ts);
+      pushHud(state);
     }
   }, [
     camReady,
@@ -267,8 +305,11 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
     detectForVideo,
     getVideo,
     mirror,
+    poseLoading,
+    poseError,
     poseReady,
     processFrame,
+    pushHud,
     voice.status,
   ]);
 
@@ -295,6 +336,11 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
   }, [camReady, drawLoop]);
 
   const busy = poseLoading || !landmarkerOpts || !cfg;
+  const hudLoadingMessage = busy
+    ? poseLoading
+      ? "Cargando modelo de pose…"
+      : "Cargando ejercicio…"
+    : null;
   const status = loadErr || camError || poseError;
 
   const handleSkipSetup = () => {
@@ -319,20 +365,19 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
       <div className="session-stage">
         <video
           ref={videoRef}
-          className={`session-video${mirror ? " session-video--mirror" : ""}`}
+          className="session-video"
           autoPlay
           muted
           playsInline
         />
         <canvas ref={canvasRef} className="session-canvas" />
-        {!busy && (
-          <SessionHud
-            hud={hud}
-            onSkipSetup={handleSkipSetup}
-            onAskCoach={voice.apiOk ? voice.askByButton : undefined}
-            coachStatus={voice.status}
-          />
-        )}
+        <SessionHud
+          hud={hud}
+          loadingMessage={hudLoadingMessage}
+          onSkipSetup={handleSkipSetup}
+          onAskCoach={voice.apiOk ? voice.askByButton : undefined}
+          coachStatus={voice.status || coachStatus}
+        />
       </div>
     </div>
   );

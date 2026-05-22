@@ -5,6 +5,8 @@ interface SessionHudProps {
   onSkipSetup?: () => void;
   onAskCoach?: () => void;
   coachStatus?: string;
+  /** Mensaje mientras carga config o modelo de pose. */
+  loadingMessage?: string | null;
 }
 
 function formatAngle(phaseAngle: number | undefined): string {
@@ -17,6 +19,7 @@ export function SessionHud({
   onSkipSetup,
   onAskCoach,
   coachStatus,
+  loadingMessage,
 }: SessionHudProps) {
   const inSetup = hud.phase === "setup";
   const angleStr = formatAngle(hud.phaseAngle);
@@ -25,6 +28,9 @@ export function SessionHud({
 
   return (
     <div className="session-hud" aria-live="polite">
+      {loadingMessage && (
+        <p className="session-hud-loading">{loadingMessage}</p>
+      )}
       <div className="session-hud-top">
         <span className="session-hud-phase">
           {inSetup

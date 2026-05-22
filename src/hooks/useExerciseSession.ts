@@ -30,6 +30,8 @@ export interface SessionHudState {
   repCount: number;
   phaseAngle: number;
   angleLabel: string;
+  /** Métricas del frame (para gráficos en canvas). */
+  metrics: Record<string, number>;
   alerts: string[];
   alertOverflow: string | null;
   setupFailures: [string, string][];
@@ -92,6 +94,7 @@ export function useExerciseSession(
     repCount: 0,
     phaseAngle: NaN,
     angleLabel: "Ángulo",
+    metrics: {},
     alerts: [],
     alertOverflow: null,
     setupFailures: [],
@@ -224,6 +227,7 @@ export function useExerciseSession(
           hud.alerts = [NO_POSE[1]];
         }
         hud.phaseAngle = NaN;
+        hud.metrics = {};
         return { ...hud };
       }
 
@@ -231,6 +235,7 @@ export function useExerciseSession(
 
       if (movement !== "press") {
         hud.alerts = ["Este ejercicio aún no está portado en la PWA."];
+        hud.metrics = {};
         return { ...hud };
       }
 
@@ -408,6 +413,7 @@ export function useExerciseSession(
         }
       }
 
+      hud.metrics = metrics;
       return { ...hud };
     },
     [

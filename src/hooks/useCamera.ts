@@ -67,6 +67,7 @@ export function useCamera(options: UseCameraOptions = {}) {
   } = options;
   const streamRef = useRef<MediaStream | null>(null);
   const videoElRef = useRef<HTMLVideoElement | null>(null);
+  const bindGenRef = useRef(0);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,12 +75,16 @@ export function useCamera(options: UseCameraOptions = {}) {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     const v = videoElRef.current;
-    if (v) v.srcObject = null;
+    if (v) {
+      v.srcObject = null;
+      v.pause();
+    }
     setReady(false);
   }, []);
 
   const bindVideo = useCallback(
     async (video: HTMLVideoElement) => {
+      const gen = ++bindGenRef.current;
       videoElRef.current = video;
       video.playsInline = true;
       video.muted = true;
@@ -87,15 +92,21 @@ export function useCamera(options: UseCameraOptions = {}) {
       video.setAttribute("webkit-playsinline", "true");
 
       try {
-        if (!streamRef.current) {
+        if (!streamRef.current?.active) {
+          streamRef.current?.getTracks().forEach((t) => t.stop());
           streamRef.current = await openCameraStream(facingMode, width, height);
         }
+        if (gen !== bindGenRef.current) return;
+
         video.srcObject = streamRef.current;
         await video.play();
         await waitForVideoDimensions(video);
+        if (gen !== bindGenRef.current) return;
+
         setReady(true);
         setError(null);
       } catch (e) {
+        if (gen !== bindGenRef.current) return;
         const msg =
           e instanceof Error
             ? e.message
@@ -107,42 +118,22 @@ export function useCamera(options: UseCameraOptions = {}) {
     [facingMode, height, width],
   );
 
-  const start = useCallback(async () => {
-    stop();
-    setError(null);
-    try {
-      streamRef.current = await openCameraStream(facingMode, width, height);
-      const video = videoElRef.current;
-      if (video) await bindVideo(video);
-    } catch (e) {
-      const msg =
-        e instanceof Error
-          ? e.message
-          : "No se pudo acceder a la cámara (permiso o HTTPS).";
-      setError(msg);
-      setReady(false);
-    }
-  }, [bindVideo, facingMode, height, stop, width]);
-
-  /** Ref callback: enlaza el stream cuando el <video> ya está en el DOM. */
+  /** Un solo <video> oculto: solo el canvas muestra la imagen. */
   const videoRef = useCallback(
     (node: HTMLVideoElement | null) => {
       if (!node) {
         videoElRef.current = null;
+        stop();
         return;
       }
-      if (streamRef.current) {
-        void bindVideo(node);
-      } else {
-        videoElRef.current = node;
-      }
+      void bindVideo(node);
     },
-    [bindVideo],
+    [bindVideo, stop],
   );
 
   useEffect(() => () => stop(), [stop]);
 
   const getVideo = useCallback(() => videoElRef.current, []);
 
-  return { videoRef, getVideo, ready, error, start, stop, mirror };
+  return { videoRef, getVideo, ready, error, stop, mirror };
 }
