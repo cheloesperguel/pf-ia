@@ -36,7 +36,16 @@ npm run preview
 
 HUD: **«OpenAI directo · Di «oye entrenador»…»**. No hace falta `uvicorn`.
 
-**Seguridad:** la clave viaja en el cliente (cualquiera con la PWA puede extraerla). Usa una clave con **límite de gasto** o solo en red local. En producción estática necesitas el mismo proxy en nginx/Caddy.
+**Seguridad:** la clave viaja en el cliente (cualquiera con la PWA puede extraerla). Usa una clave con **límite de gasto** o solo en red local.
+
+**Vercel:** el repo incluye `vercel.json` que reescribe `/openai/*` → `api.openai.com` (igual que el proxy de Vite en dev). En el panel de Vercel → **Environment Variables** (Production):
+
+- `VITE_OPENAI_API_KEY` = tu clave
+- `VITE_OPENAI_API_BASE` = `/openai/v1` (opcional; es el default)
+
+Tras cambiar variables, **Redeploy**. Probar: `https://tu-dominio/openai/v1/models` con header `Authorization: Bearer sk-...` debe devolver JSON (sin clave suele ser **401**, no 404).
+
+**nginx/Caddy** (otro hosting): mismo rewrite, p. ej. `proxy_pass https://api.openai.com/;` en la ruta `/openai/`.
 
 ### Alternativas
 

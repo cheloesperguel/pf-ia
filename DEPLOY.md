@@ -37,6 +37,13 @@ uvicorn api.main:app --host 0.0.0.0 --port 8000
 
 En producción, proxy `/api` → puerto 8000 en el mismo dominio, o define `VITE_COACH_API_URL` al build.
 
+## Vercel
+
+- **Root directory:** `web` (si el repo es el monorepo completo).
+- **Build:** `npm run build` · **Output:** `dist`
+- Variables: `VITE_OPENAI_API_KEY`, opcional `VITE_OPENAI_API_BASE=/openai/v1`
+- `vercel.json` en `web/` proxifica `/openai` → OpenAI (sin esto obtienes **404** en `/openai/v1/...`).
+
 ## App de escritorio (Python en la raíz del repo)
 
 Sigue usando `web/public/` vía `pf_paths.py` (misma config que la PWA).
