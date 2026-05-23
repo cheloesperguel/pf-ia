@@ -504,6 +504,8 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
           coachStatus={showCoachHud ? voice.status || coachStatus : undefined}
           hearPreview={showCoachHud ? voice.hearPreview : null}
           coachSpeaking={coachSpeaking || voice.state === "speaking"}
+          coachState={voice.state}
+          coachInteractionBusy={voice.coachInteractionBusy}
           onStopCoachSpeech={() => {
             stopCoachSpeech();
             voice.abortCoachSpeech();

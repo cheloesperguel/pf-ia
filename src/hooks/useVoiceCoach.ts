@@ -156,12 +156,15 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
 
   useEffect(() => {
     return subscribeCoachSpeechLock((locked) => {
-      if (!locked && stateRef.current === "speaking") {
-        setState("idle");
-        setHudStatus(statusLabel(backendRef.current, wakePhrase, locale));
+      if (!locked) {
+        busyRef.current = false;
+        if (stateRef.current === "speaking") {
+          setState("idle");
+          setHudStatus(statusLabel(backendRef.current, wakePhrase, locale));
+        }
       }
     });
-  }, [setHudStatus, wakePhrase]);
+  }, [locale, setHudStatus, wakePhrase]);
 
   const clearPreviewLinger = useCallback(() => {
     if (previewLingerRef.current) {
@@ -296,6 +299,7 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
     async (rawQuestion: string) => {
       const question = stripWakePhrase(rawQuestion, wakePhrase);
       if (!question || question.length < 2) {
+        setState("speaking");
         onSpeak(translate(locale, "voice.noQuestion"));
         return;
       }
@@ -331,6 +335,8 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
   );
 
   const listenAndAnswer = useCallback(async () => {
+    if (busyRef.current || listenActiveRef.current) return;
+    busyRef.current = true;
     listenActiveRef.current = true;
     setState("listening");
     setHudStatus(translate(locale, "voice.listening"));
@@ -342,24 +348,29 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
     }
     if (!text) {
       onSpeak(translate(locale, "voice.nothingHeard"));
+      busyRef.current = false;
       setState("idle");
       setHudStatus(statusLabel(backendRef.current, wakePhrase, locale));
       setHearPreview(null);
       return;
     }
-    if (busyRef.current) return;
-    busyRef.current = true;
     try {
       await answerQuestion(text);
-    } finally {
+      lingerPreview(text);
+      if (stateRef.current === "idle") {
+        busyRef.current = false;
+        setHudStatus(statusLabel(backendRef.current, wakePhrase, locale));
+      }
+    } catch (e) {
+      console.warn("[voiceCoach] listenAndAnswer", e);
       busyRef.current = false;
       setState("idle");
       setHudStatus(statusLabel(backendRef.current, wakePhrase, locale));
-      lingerPreview(text);
     }
   }, [
     answerQuestion,
     lingerPreview,
+    locale,
     onSpeak,
     recordSeconds,
     setHudStatus,
@@ -367,9 +378,16 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
     wakePhrase,
   ]);
 
-  const askByButton = useCallback(async () => {
-    if (backendRef.current === "none" || !executionActive) return;
-    await listenAndAnswer();
+  const askByButton = useCallback(() => {
+    if (
+      backendRef.current === "none" ||
+      !executionActive ||
+      busyRef.current ||
+      listenActiveRef.current
+    ) {
+      return;
+    }
+    void listenAndAnswer();
   }, [executionActive, listenAndAnswer]);
 
   useEffect(() => {
@@ -457,11 +475,18 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
 
   const abortCoachSpeech = useCallback(() => {
     forceStopCoachSpeech();
+    busyRef.current = false;
     if (stateRef.current === "speaking") {
       setState("idle");
       setHudStatus(statusLabel(backendRef.current, wakePhrase, locale));
     }
-  }, [setHudStatus, wakePhrase]);
+  }, [locale, setHudStatus, wakePhrase]);
+
+  const coachInteractionBusy =
+    state === "listening" ||
+    state === "thinking" ||
+    state === "speaking" ||
+    state === "workout_listen";
 
   const voiceAvailable = backend !== "none";
 
@@ -472,6 +497,7 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
     backend,
     voiceAvailable,
     state,
+    coachInteractionBusy,
     status,
     hearPreview,
     listenBlocking,

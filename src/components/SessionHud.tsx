@@ -1,5 +1,7 @@
 import type { SessionHudState } from "@/hooks/useExerciseSession";
+import type { CoachState } from "@/lib/coachApi";
 import { useT } from "@/i18n/LocaleContext";
+import type { MessageKey } from "@/i18n/messages";
 
 interface SessionHudProps {
   hud: SessionHudState;
@@ -9,8 +11,21 @@ interface SessionHudProps {
   coachStatus?: string;
   hearPreview?: { text: string; interim: boolean } | null;
   coachSpeaking?: boolean;
+  coachState?: CoachState;
+  coachInteractionBusy?: boolean;
   onStopCoachSpeech?: () => void;
   loadingMessage?: string | null;
+}
+
+function askCoachButtonLabel(
+  coachState: CoachState | undefined,
+  t: (key: MessageKey) => string,
+): string {
+  if (coachState === "listening" || coachState === "workout_listen") {
+    return t("hud.askCoachListening");
+  }
+  if (coachState === "thinking") return t("hud.askCoachThinking");
+  return t("hud.askCoach");
 }
 
 function formatAngle(phaseAngle: number | undefined): string {
@@ -34,6 +49,8 @@ export function SessionHud({
   coachStatus,
   hearPreview,
   coachSpeaking = false,
+  coachState,
+  coachInteractionBusy = false,
   onStopCoachSpeech,
   loadingMessage,
 }: SessionHudProps) {
@@ -256,10 +273,16 @@ export function SessionHud({
           {onAskCoach && inExecution && !coachSpeaking && (
             <button
               type="button"
-              className="session-hud__btn session-hud__btn--primary"
+              className={`session-hud__btn session-hud__btn--primary${
+                coachState === "listening" || coachState === "workout_listen"
+                  ? " session-hud__btn--listening"
+                  : ""
+              }`}
+              disabled={coachInteractionBusy}
+              aria-busy={coachInteractionBusy}
               onClick={() => onAskCoach()}
             >
-              {t("hud.askCoach")}
+              {askCoachButtonLabel(coachState, t)}
             </button>
           )}
         </div>

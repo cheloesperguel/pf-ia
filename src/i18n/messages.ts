@@ -48,6 +48,8 @@ export type MessageKey =
   | "hud.skipSetup"
   | "hud.stopCoach"
   | "hud.askCoach"
+  | "hud.askCoachListening"
+  | "hud.askCoachThinking"
   | "hud.angle"
   | "cal.title"
   | "cal.close"
@@ -133,6 +135,8 @@ const ES: Record<MessageKey, string> = {
   "hud.skipSetup": "Omitir setup",
   "hud.stopCoach": "Detener voz IA",
   "hud.askCoach": "Preguntar al entrenador",
+  "hud.askCoachListening": "Escuchando… habla ahora",
+  "hud.askCoachThinking": "Pensando…",
   "hud.angle": "Ángulo",
   "cal.title": "Calibración",
   "cal.close": "Cerrar",
@@ -221,6 +225,8 @@ const EN: Record<MessageKey, string> = {
   "hud.skipSetup": "Skip setup",
   "hud.stopCoach": "Stop AI voice",
   "hud.askCoach": "Ask the coach",
+  "hud.askCoachListening": "Listening… speak now",
+  "hud.askCoachThinking": "Thinking…",
   "hud.angle": "Angle",
   "cal.title": "Calibration",
   "cal.close": "Close",
