@@ -1,0 +1,16 @@
+{
+  "program_id": "press_4x12",
+  "display_name": "Overhead press 4×12",
+  "sets": 4,
+  "reps_per_set": 12,
+  "rest_seconds": 60,
+  "extra_rest_seconds": 60,
+  "listen_seconds": 6,
+  "intro_tts": "Program: four sets of twelve reps. After each set you'll rest one minute.",
+  "set_start_tts": "Set {set} of {total_sets}. Let's go.",
+  "rest_end_tts": "Set {next_set} of {total_sets}. Ready or need another minute?",
+  "workout_done_tts": "Program finished. Great work.",
+  "extra_rest_tts": "Take another minute. Rest up.",
+  "ready_tts": "Perfect. Starting set {set}.",
+  "no_hear_tts": "I didn't hear you clearly. Say ready to continue or ask for another minute."
+}

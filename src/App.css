@@ -19,10 +19,49 @@
 }
 
 .picker-sub {
-  margin: 0 0 1.25rem;
+  margin: 0 0 1rem;
   color: var(--muted);
   font-size: 0.95rem;
   line-height: 1.45;
+}
+
+.picker-lang {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.picker-lang-label {
+  font-size: 0.88rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.picker-lang-toggle {
+  display: flex;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.picker-lang-toggle button {
+  padding: 0.45rem 0.9rem;
+  border: none;
+  background: var(--surface);
+  color: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.picker-lang-toggle button.active {
+  background: var(--accent);
+  color: #0b1220;
+  font-weight: 600;
+}
+
+.picker-lang-toggle button:not(.active):hover {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
 }
 
 .picker-list {

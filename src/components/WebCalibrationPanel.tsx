@@ -3,6 +3,7 @@ import {
   applyCalibrationOnServer,
   saveCalibrationToServer,
 } from "@/lib/calibrationApi";
+import { useT } from "@/i18n/LocaleContext";
 import {
   downloadCalibrationJson,
   exportCalibrationPatch,
@@ -61,6 +62,7 @@ export function WebCalibrationPanel({
   onClose,
   onApplied,
 }: WebCalibrationPanelProps) {
+  const t = useT();
   const sliders = useMemo(() => pressCalibrationSliders(cfg), [cfg]);
   const [status, setStatus] = useState("");
   const [activeKey, setActiveKey] = useState<string | null>(null);
@@ -72,7 +74,7 @@ export function WebCalibrationPanel({
     } else {
       const rid = soloRuleIdForIndex(cfg, n);
       if (rid) setSoloRule(cfg, rid);
-      else setStatus("Sliders 1–2 son reps; usa 3–8 para una regla");
+      else setStatus(t("cal.slidersRepOnly"));
       const sl = sliders.find((s) => s.soloIndex === n);
       if (sl) {
         setActiveKey(sl.key);
@@ -93,40 +95,34 @@ export function WebCalibrationPanel({
     const patch = exportCalibrationPatch(cfg);
     const ok = await saveCalibrationToServer(exerciseId, patch);
     downloadCalibrationJson(exerciseId, patch);
-    setStatus(
-      ok
-        ? "Guardado en servidor y descargado."
-        : "Descargado (API apagada: solo archivo local).",
-    );
+    setStatus(ok ? t("cal.savedServer") : t("cal.savedLocal"));
   };
 
   const handleApply = async () => {
     await saveCalibrationToServer(exerciseId, exportCalibrationPatch(cfg));
     const { ok, changes } = await applyCalibrationOnServer(exerciseId);
     if (!ok) {
-      setStatus("Aplica en PC: python apply_calibration.py (API no disponible).");
+      setStatus(t("cal.applyPc"));
       return;
     }
     setStatus(
       changes.length
-        ? `Aplicado: ${changes.length} cambio(s).`
-        : "Sin cambios respecto al JSON principal.",
+        ? t("cal.applied", { n: changes.length })
+        : t("cal.noChanges"),
     );
     if (changes.length) onApplied?.();
   };
 
   return (
-    <div className="web-cal" role="dialog" aria-label="Calibración en vivo">
+    <div className="web-cal" role="dialog" aria-label={t("cal.title")}>
       <div className="web-cal-header">
-        <strong>Calibración</strong>
+        <strong>{t("cal.title")}</strong>
         <button type="button" className="btn-ghost" onClick={onClose}>
-          Cerrar
+          {t("cal.close")}
         </button>
       </div>
 
-      <p className="web-cal-hint">
-        Fase 1 omitida. <b>3–8</b> = una regla (nombre y aviso arriba). <b>0</b> = todas.
-      </p>
+      <p className="web-cal-hint">{t("cal.hint")}</p>
 
       <div className="web-cal-solo">
         <button
@@ -134,7 +130,7 @@ export function WebCalibrationPanel({
           className={soloIndex === null ? "active" : ""}
           onClick={() => applySolo(null)}
         >
-          0 Todas
+          {t("cal.all")}
         </button>
         {[3, 4, 5, 6, 7, 8].map((n) => (
           <button
@@ -154,6 +150,10 @@ export function WebCalibrationPanel({
           const val = posToSliderValue(sl, pos);
           const live = formatLiveMetric(metrics, sl, cfg);
           const isActive = activeKey === sl.key || soloIndex === sl.soloIndex;
+          const threshold =
+            sl.kind === "deg"
+              ? t("cal.thresholdDeg", { val: val.toFixed(0) })
+              : t("cal.threshold", { val: val.toFixed(2) });
           return (
             <li key={sl.key} className={isActive ? "web-cal-sl-active" : ""}>
               <label>
@@ -163,10 +163,8 @@ export function WebCalibrationPanel({
                   <span className="web-cal-sl-hint">{sl.valueHint}</span>
                 )}
                 <span className="web-cal-sl-val">
-                  {sl.kind === "deg"
-                    ? `Umbral ${val.toFixed(0)}°`
-                    : `Umbral ${val.toFixed(2)}`}
-                  {live ? ` · vivo ${live}` : ""}
+                  {threshold}
+                  {live ? ` · ${t("cal.live")} ${live}` : ""}
                 </span>
                 <input
                   type="range"
@@ -189,10 +187,10 @@ export function WebCalibrationPanel({
 
       <div className="web-cal-actions">
         <button type="button" onClick={() => void handleSave()}>
-          Guardar (S)
+          {t("cal.save")}
         </button>
         <button type="button" className="btn-apply" onClick={() => void handleApply()}>
-          Aplicar al JSON
+          {t("cal.apply")}
         </button>
       </div>
       {status && <p className="web-cal-status">{status}</p>}

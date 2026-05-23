@@ -1,4 +1,5 @@
 import type { SessionHudState } from "@/hooks/useExerciseSession";
+import { useT } from "@/i18n/LocaleContext";
 
 interface SessionHudProps {
   hud: SessionHudState;
@@ -36,6 +37,7 @@ export function SessionHud({
   onStopCoachSpeech,
   loadingMessage,
 }: SessionHudProps) {
+  const t = useT();
   const inSetup = !calibrationMode && hud.phase === "setup";
   const inExecution = !calibrationMode && hud.phase === "execution";
   const angleStr = formatAngle(hud.phaseAngle);
@@ -47,16 +49,16 @@ export function SessionHud({
   );
 
   const phaseTitle = calibrationMode
-    ? "Calibración"
+    ? t("hud.calibration")
     : inSetup
-      ? "Setup"
-      : "Ejecución";
+      ? t("hud.setup")
+      : t("hud.execution");
 
   const phaseDetail = calibrationMode
-    ? "Fase 1 omitida"
+    ? t("hud.phaseSkipped")
     : inSetup
       ? hud.positionLabel
-      : `${hud.repCount} reps`;
+      : `${hud.repCount} ${t("hud.reps")}`;
 
   return (
     <div className="session-hud" aria-live="polite">
@@ -71,12 +73,14 @@ export function SessionHud({
           </div>
           <div className="session-hud__chips" role="status">
             <span className={`session-hud__chip${hud.viewOk ? " ok" : " bad"}`}>
-              Vista
+              {t("hud.view")}
             </span>
             <span className={`session-hud__chip${hud.trackingOk ? " ok" : " bad"}`}>
-              Brazos
+              {t("hud.arms")}
             </span>
-            {hud.noPose && <span className="session-hud__chip bad">Sin pose</span>}
+            {hud.noPose && (
+              <span className="session-hud__chip bad">{t("hud.noPose")}</span>
+            )}
           </div>
           {inExecution && (
             <div className="session-hud__metric-pill" title={hud.angleLabel}>
@@ -85,18 +89,20 @@ export function SessionHud({
             </div>
           )}
           {inExecution && (
-            <div className="session-hud__rep-hero" aria-label={`${hud.repCount} repeticiones`}>
+            <div
+              className="session-hud__rep-hero"
+              aria-label={`${hud.repCount} ${t("hud.reps")}`}
+            >
               {hud.repCount}
             </div>
           )}
         </div>
-       
       </header>
 
       <main className="session-hud__body">
         {hud.rejectFlash && hud.rejectMessages.length > 0 && (
           <div className="session-hud__card session-hud__card--reject">
-            <span className="session-hud__card-title">Rep no válida</span>
+            <span className="session-hud__card-title">{t("hud.invalidRep")}</span>
             <p>{hud.rejectMessages.join(" · ")}</p>
           </div>
         )}
@@ -110,7 +116,7 @@ export function SessionHud({
                 ))}
               </ul>
             ) : (
-              <p className="session-hud__ok-line">Pose OK — mantén quieto</p>
+              <p className="session-hud__ok-line">{t("hud.poseOkHold")}</p>
             )}
             <div className="session-hud__progress">
               <div
@@ -118,7 +124,9 @@ export function SessionHud({
                 style={{ width: `${holdProgress * 100}%` }}
               />
             </div>
-            <p className="session-hud__progress-label">Partida en {holdSecLeft} s</p>
+            <p className="session-hud__progress-label">
+              {t("hud.startIn", { sec: holdSecLeft })}
+            </p>
           </div>
         ) : (
           <div className="session-hud__card session-hud__card--form">
@@ -129,7 +137,7 @@ export function SessionHud({
                 ))}
               </ul>
             ) : (
-              <p className="session-hud__ok-line">Forma OK</p>
+              <p className="session-hud__ok-line">{t("hud.formOk")}</p>
             )}
             {hud.alertOverflow && (
               <p className="session-hud__muted">{hud.alertOverflow}</p>
@@ -141,20 +149,20 @@ export function SessionHud({
           <div className="session-hud__card session-hud__card--workout">
             <div className="session-hud__workout-grid">
               <div className="session-hud__stat">
-                <span className="session-hud__stat-label">Programa</span>
+                <span className="session-hud__stat-label">{t("hud.program")}</span>
                 <span className="session-hud__stat-value session-hud__stat-value--short">
                   {hud.workout.displayName}
                 </span>
               </div>
               <div className="session-hud__stat">
-                <span className="session-hud__stat-label">Serie</span>
+                <span className="session-hud__stat-label">{t("hud.set")}</span>
                 <span className="session-hud__stat-value">
                   {hud.workout.currentSet}/{hud.workout.totalSets}
                 </span>
               </div>
               {hud.workout.phase === "set_active" && (
                 <div className="session-hud__stat session-hud__stat--wide">
-                  <span className="session-hud__stat-label">Reps serie</span>
+                  <span className="session-hud__stat-label">{t("hud.setReps")}</span>
                   <span className="session-hud__stat-value">
                     {hud.workout.repsInSet}/{hud.workout.repsPerSet}
                   </span>
@@ -164,7 +172,7 @@ export function SessionHud({
 
             {hud.workout.phase === "rest" && (
               <div className="session-hud__rest" aria-live="polite">
-                <span className="session-hud__rest-label">Descanso</span>
+                <span className="session-hud__rest-label">{t("hud.rest")}</span>
                 <span className="session-hud__rest-clock">
                   {formatRestClock(hud.workout.restSecondsLeft)}
                 </span>
@@ -191,22 +199,20 @@ export function SessionHud({
                   </div>
                 )}
                 <span className="session-hud__rest-meta">
-                  Siguiente serie {hud.workout.currentSet + 1}
+                  {t("hud.nextSet", { n: hud.workout.currentSet + 1 })}
                 </span>
               </div>
             )}
 
             {hud.workout.phase === "rest_prompt" && (
               <div className="session-hud__rest session-hud__rest--prompt">
-                <span className="session-hud__rest-label">¿Listo?</span>
-                <span className="session-hud__rest-meta">
-                  Di <strong>listo</strong> o <strong>otro minuto</strong>
-                </span>
+                <span className="session-hud__rest-label">{t("hud.readyPrompt")}</span>
+                <span className="session-hud__rest-meta">{t("hud.sayReady")}</span>
               </div>
             )}
 
             {hud.workout.phase === "done" && (
-              <p className="session-hud__ok-line">Programa completado</p>
+              <p className="session-hud__ok-line">{t("hud.workoutDone")}</p>
             )}
 
             {hud.workout.hudNote && (
@@ -224,7 +230,7 @@ export function SessionHud({
           <p
             className={`session-hud__heard${hearPreview.interim ? " session-hud__heard--interim" : ""}`}
           >
-            <span className="session-hud__heard-label">Oído</span>
+            <span className="session-hud__heard-label">{t("hud.heard")}</span>
             {hearPreview.text}
           </p>
         )}
@@ -235,7 +241,7 @@ export function SessionHud({
               className="session-hud__btn session-hud__btn--secondary"
               onClick={onSkipSetup}
             >
-              Omitir setup
+              {t("hud.skipSetup")}
             </button>
           )}
           {coachSpeaking && onStopCoachSpeech && (
@@ -244,7 +250,7 @@ export function SessionHud({
               className="session-hud__btn session-hud__btn--danger"
               onClick={() => onStopCoachSpeech()}
             >
-              Detener voz IA
+              {t("hud.stopCoach")}
             </button>
           )}
           {onAskCoach && inExecution && !coachSpeaking && (
@@ -253,7 +259,7 @@ export function SessionHud({
               className="session-hud__btn session-hud__btn--primary"
               onClick={() => onAskCoach()}
             >
-              Preguntar al entrenador
+              {t("hud.askCoach")}
             </button>
           )}
         </div>

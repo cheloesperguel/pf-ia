@@ -1,0 +1,16 @@
+{
+  "program_id": "press_4x12",
+  "display_name": "Press militar 4×12",
+  "sets": 4,
+  "reps_per_set": 12,
+  "rest_seconds": 60,
+  "extra_rest_seconds": 60,
+  "listen_seconds": 6,
+  "intro_tts": "Programa: cuatro series de doce repeticiones. Cuando termines cada serie, descansarás un minuto.",
+  "set_start_tts": "Serie {set} de {total_sets}. Vamos.",
+  "rest_end_tts": "Vamos a la serie {next_set} de {total_sets}. ¿Listo o necesitas otro minuto?",
+  "workout_done_tts": "Programa terminado. Buen trabajo.",
+  "extra_rest_tts": "Te doy otro minuto. Descansa.",
+  "ready_tts": "Perfecto. Empezamos la serie {set}.",
+  "no_hear_tts": "No te escuché bien. Di listo para seguir o pide otro minuto."
+}

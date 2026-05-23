@@ -21,12 +21,15 @@ import {
   stripWakePhrase,
   type ListenPreviewFn,
 } from "@/lib/webSpeech";
+import { speechLang, wakePhrase as defaultWakePhrase, type AppLocale } from "@/i18n/locale";
+import { translate, type MessageKey } from "@/i18n/messages";
 import { classifyReadinessLocal } from "@/lib/workoutGuide";
 
 export type VoiceBackend = "openai" | "api" | "browser" | "none";
 
 export interface VoiceCoachOptions {
   enabled: boolean;
+  locale: AppLocale;
   /** Muestra en HUD «OpenAI directo», micrófono y «Oído:». Por defecto false. */
   showHudStatus?: boolean;
   exerciseId: string;
@@ -95,27 +98,28 @@ const PREVIEW_LINGER_MS = 4500;
 
 function statusLabel(
   backend: VoiceBackend,
-  wakePhrase: string,
+  wake: string,
+  locale: AppLocale,
 ): string {
-  if (backend === "openai") {
-    return `OpenAI directo · Di «${wakePhrase}» o Preguntar`;
-  }
-  if (backend === "api") {
-    return `Coach API (Python) · Di «${wakePhrase}» o Preguntar`;
-  }
-  if (backend === "browser") {
-    return `Solo voz navegador (sin OpenAI) · «${wakePhrase}»`;
-  }
-  return "Voz no disponible.";
+  const key: MessageKey =
+    backend === "openai"
+      ? "voice.statusOpenai"
+      : backend === "api"
+        ? "voice.statusApi"
+        : backend === "browser"
+          ? "voice.statusBrowser"
+          : "voice.unavailable";
+  return translate(locale, key, { wake });
 }
 
 export function useVoiceCoach(options: VoiceCoachOptions) {
   const {
     enabled,
+    locale,
     showHudStatus = false,
     exerciseId,
     exerciseDisplay,
-    wakePhrase = "oye entrenador",
+    wakePhrase = defaultWakePhrase(locale),
     recordSeconds = 5,
     getSessionContext,
     onSpeak,
@@ -154,7 +158,7 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
     return subscribeCoachSpeechLock((locked) => {
       if (!locked && stateRef.current === "speaking") {
         setState("idle");
-        setHudStatus(statusLabel(backendRef.current, wakePhrase));
+        setHudStatus(statusLabel(backendRef.current, wakePhrase, locale));
       }
     });
   }, [setHudStatus, wakePhrase]);
@@ -204,7 +208,7 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
       setBackend("none");
       setCoachOk(false);
       setState("unavailable");
-      setHudStatus("Coach desactivado en JSON");
+      setHudStatus(translate(locale, "voice.coachDisabled"));
       return;
     }
     void (async () => {
@@ -228,8 +232,8 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
       }
       let base =
         openaiDirectConfigured() && !gptOk
-          ? "Clave OpenAI rechazada. Revisa VITE_OPENAI_API_KEY en web/.env y reinicia npm run dev"
-          : statusLabel(b, wakePhrase);
+          ? translate(locale, "voice.openaiRejected")
+          : statusLabel(b, wakePhrase, locale);
       if (b !== "none") {
         const mic = await probeMicrophone();
         const hint = formatMicHint(mic, b);
@@ -237,27 +241,32 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
       }
       setHudStatus(base);
     })();
-  }, [enabled, setHudStatus, wakePhrase, speechOk]);
+  }, [enabled, locale, setHudStatus, wakePhrase, speechOk]);
 
   const transcribe = useCallback(
     async (seconds: number): Promise<string> => {
       const useWhisper =
         useOpenaiRef.current || (coachOkRef.current && !speechOk);
       if (useWhisper) {
-        setLivePreview("● Grabando…", true);
+        setLivePreview(translate(locale, "voice.recording"), true);
         const blob = await captureAudioSeconds(seconds, (left) =>
-          setLivePreview(left > 0 ? `● Grabando… ${left}s` : "● Grabando…", true),
+          setLivePreview(
+            left > 0
+              ? `${translate(locale, "voice.recording")} ${left}s`
+              : translate(locale, "voice.recording"),
+            true,
+          ),
         );
         if (!blob) return "";
-        setLivePreview("Transcribiendo…", true);
-        const text = await transcribeAudio(blob);
+        setLivePreview(translate(locale, "voice.transcribing"), true);
+        const text = await transcribeAudio(blob, locale);
         if (text) setLivePreview(text, false);
         return text;
       }
-      if (speechOk) return listenOnce(seconds, "es-MX", onSttPreview);
+      if (speechOk) return listenOnce(seconds, speechLang(locale), onSttPreview);
       return "";
     },
-    [onSttPreview, setLivePreview, speechOk],
+    [locale, onSttPreview, setLivePreview, speechOk],
   );
 
   const listenBlocking = useCallback(
@@ -265,7 +274,7 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
       if (backendRef.current === "none") return "";
       listenActiveRef.current = true;
       setState("workout_listen");
-      setHudStatus("Di listo o pide otro minuto…");
+      setHudStatus(translate(locale, "voice.listenReady"));
       let heard = "";
       try {
         heard = await transcribe(seconds);
@@ -275,55 +284,56 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
         return "";
       } finally {
         setState("idle");
-        setHudStatus(statusLabel(backendRef.current, wakePhrase));
+        setHudStatus(statusLabel(backendRef.current, wakePhrase, locale));
         listenActiveRef.current = false;
         lingerPreview(heard);
       }
     },
-    [lingerPreview, setHudStatus, transcribe, wakePhrase],
+    [lingerPreview, locale, setHudStatus, transcribe, wakePhrase],
   );
 
   const answerQuestion = useCallback(
     async (rawQuestion: string) => {
       const question = stripWakePhrase(rawQuestion, wakePhrase);
       if (!question || question.length < 2) {
-        onSpeak("No entendí la pregunta. Intenta de nuevo.");
+        onSpeak(translate(locale, "voice.noQuestion"));
         return;
       }
       if (coachOkRef.current && backendRef.current !== "browser") {
         setState("thinking");
-        setHudStatus("Pensando respuesta…");
+        setHudStatus(translate(locale, "voice.thinking"));
         try {
           const answer = await askCoachQuestion(
             question,
             exerciseId,
             getSessionContext(),
+            locale,
           );
           if (!answer) {
-            onSpeak("No pude generar una respuesta.");
+            onSpeak(translate(locale, "voice.noAnswer"));
             return;
           }
           setState("speaking");
-          setHudStatus("Respondiendo…");
+          setHudStatus(translate(locale, "voice.responding"));
           onSpeak(answer);
         } catch (e) {
           console.warn("[voiceCoach] ask", e);
           onSpeak(
-            e instanceof Error ? e.message : "Error al consultar OpenAI.",
+            e instanceof Error ? e.message : translate(locale, "voice.openaiError"),
           );
         }
       } else {
         setState("speaking");
-        onSpeak(localCoachReply(question, exerciseDisplay));
+        onSpeak(localCoachReply(question, exerciseDisplay, locale));
       }
     },
-    [exerciseDisplay, exerciseId, getSessionContext, onSpeak, wakePhrase],
+    [exerciseDisplay, exerciseId, getSessionContext, locale, onSpeak, wakePhrase],
   );
 
   const listenAndAnswer = useCallback(async () => {
     listenActiveRef.current = true;
     setState("listening");
-    setHudStatus("Escuchando tu pregunta…");
+    setHudStatus(translate(locale, "voice.listening"));
     let text = "";
     try {
       text = await transcribe(recordSeconds);
@@ -331,9 +341,9 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
       listenActiveRef.current = false;
     }
     if (!text) {
-      onSpeak("No escuché nada. Comprueba permiso de micrófono.");
+      onSpeak(translate(locale, "voice.nothingHeard"));
       setState("idle");
-      setHudStatus(statusLabel(backendRef.current, wakePhrase));
+      setHudStatus(statusLabel(backendRef.current, wakePhrase, locale));
       setHearPreview(null);
       return;
     }
@@ -344,7 +354,7 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
     } finally {
       busyRef.current = false;
       setState("idle");
-      setHudStatus(statusLabel(backendRef.current, wakePhrase));
+      setHudStatus(statusLabel(backendRef.current, wakePhrase, locale));
       lingerPreview(text);
     }
   }, [
@@ -385,14 +395,14 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
     if (!SR) return;
 
     const rec = new SR();
-    rec.lang = "es-MX";
+    rec.lang = speechLang(locale);
     rec.continuous = true;
     rec.interimResults = true;
     rec.onresult = (ev: SpeechRecognitionEvent) => {
       if (busyRef.current || listenActiveRef.current) return;
       const merged = mergeRecognitionResults(ev);
       if (merged.text) setLivePreview(merged.text, merged.interim);
-      if (merged.text && wakePhraseDetected(merged.text, wakePhrase)) {
+      if (merged.text && wakePhraseDetected(merged.text, wakePhrase, locale)) {
         try {
           rec.stop();
         } catch {
@@ -424,15 +434,16 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
     setLivePreview,
     speechOk,
     wakePhrase,
+    locale,
   ]);
 
   const classifyFn = useCallback(
     async (transcript: string): Promise<"ready" | "more_rest" | "unclear"> => {
-      const local = classifyReadinessLocal(transcript);
+      const local = classifyReadinessLocal(transcript, locale);
       if (local !== "unclear") return local;
       if (!coachOkRef.current || !transcript.trim()) return "unclear";
       try {
-        const raw = await classifyReadinessApi(transcript);
+        const raw = await classifyReadinessApi(transcript, locale);
         if (raw === "ready" || raw === "more_rest" || raw === "unclear") {
           return raw;
         }
@@ -441,14 +452,14 @@ export function useVoiceCoach(options: VoiceCoachOptions) {
       }
       return "unclear";
     },
-    [],
+    [locale],
   );
 
   const abortCoachSpeech = useCallback(() => {
     forceStopCoachSpeech();
     if (stateRef.current === "speaking") {
       setState("idle");
-      setHudStatus(statusLabel(backendRef.current, wakePhrase));
+      setHudStatus(statusLabel(backendRef.current, wakePhrase, locale));
     }
   }, [setHudStatus, wakePhrase]);
 

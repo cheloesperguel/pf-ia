@@ -10,11 +10,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(__dirname, "..", "public");
 
 const required = [
-  "exercise_instructions/press_militar.json",
-  "workout_programs/press_4x12.json",
+  "locales/es/exercise_instructions/press_militar.json",
+  "locales/en/exercise_instructions/press_militar.json",
+  "locales/es/workout_programs/press_4x12.json",
+  "locales/en/workout_programs/press_4x12.json",
+  "locales/es/docs/exercises/press_militar.md",
+  "locales/en/docs/exercises/press_militar.md",
   "settings_pose.json",
   "settings_ia.json",
-  "docs/exercises/press_militar.md",
 ];
 
 let ok = true;

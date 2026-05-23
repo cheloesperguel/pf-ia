@@ -1,3 +1,4 @@
+import { getActiveLocale, type AppLocale } from "@/i18n/locale";
 import {
   openaiAskCoach,
   openaiClassifyReadiness,
@@ -49,15 +50,18 @@ export async function coachHealth(): Promise<boolean> {
   return pythonApiHealth();
 }
 
-export async function transcribeAudio(blob: Blob): Promise<string> {
-  if (openaiDirectConfigured()) return openaiTranscribe(blob);
+export async function transcribeAudio(
+  blob: Blob,
+  locale: AppLocale = getActiveLocale(),
+): Promise<string> {
+  if (openaiDirectConfigured()) return openaiTranscribe(blob, locale);
   const fd = new FormData();
   const ext =
     blob.type.includes("mp4") || blob.type.includes("aac")
       ? "utterance.m4a"
       : "utterance.webm";
   fd.append("file", blob, ext);
-  const res = await fetch(`${API_BASE}/api/coach/transcribe`, {
+  const res = await fetch(`${API_BASE}/api/coach/transcribe?locale=${locale}`, {
     method: "POST",
     body: fd,
   });
@@ -70,9 +74,10 @@ export async function askCoachQuestion(
   question: string,
   exerciseId: string,
   sessionContext: Record<string, unknown>,
+  locale: AppLocale = getActiveLocale(),
 ): Promise<string> {
   if (openaiDirectConfigured()) {
-    return openaiAskCoach(question, exerciseId, sessionContext);
+    return openaiAskCoach(question, exerciseId, sessionContext, locale);
   }
   const res = await fetch(`${API_BASE}/api/coach/ask`, {
     method: "POST",
@@ -81,6 +86,7 @@ export async function askCoachQuestion(
       question,
       exercise_id: exerciseId,
       session_context: sessionContext,
+      locale,
     }),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -88,12 +94,15 @@ export async function askCoachQuestion(
   return (data.answer ?? "").trim();
 }
 
-export async function classifyReadinessApi(transcript: string): Promise<string> {
-  if (openaiDirectConfigured()) return openaiClassifyReadiness(transcript);
+export async function classifyReadinessApi(
+  transcript: string,
+  locale: AppLocale = getActiveLocale(),
+): Promise<string> {
+  if (openaiDirectConfigured()) return openaiClassifyReadiness(transcript, locale);
   const res = await fetch(`${API_BASE}/api/coach/classify-readiness`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ transcript }),
+    body: JSON.stringify({ transcript, locale }),
   });
   if (!res.ok) throw new Error(await parseError(res));
   const data = (await res.json()) as { action?: string };
@@ -104,9 +113,10 @@ export async function summarizeSetApi(
   exerciseId: string,
   setNum: number,
   errors: { rule_id: string; message: string; count: number }[],
+  locale: AppLocale = getActiveLocale(),
 ): Promise<string> {
   if (openaiDirectConfigured()) {
-    return openaiSummarizeSet(exerciseId, setNum, errors);
+    return openaiSummarizeSet(exerciseId, setNum, errors, locale);
   }
   const res = await fetch(`${API_BASE}/api/coach/summarize-set`, {
     method: "POST",
@@ -115,6 +125,7 @@ export async function summarizeSetApi(
       exercise_id: exerciseId,
       set_num: setNum,
       errors,
+      locale,
     }),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -122,16 +133,27 @@ export async function summarizeSetApi(
   return (data.text ?? "").trim();
 }
 
-export function wakePhraseDetected(text: string, phrase = "oye entrenador"): boolean {
+export function wakePhraseDetected(
+  text: string,
+  phrase?: string,
+  locale: AppLocale = getActiveLocale(),
+): boolean {
+  const p = (
+    phrase ??
+    (locale === "en" ? "hey coach" : "oye entrenador")
+  )
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase();
   const t = text
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
     .toLowerCase();
-  const p = phrase
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .toLowerCase();
   if (p && t.includes(p)) return true;
+  if (locale === "en") {
+    const words = t.split(/\s+/);
+    return words.includes("hey") && words.some((w) => w.startsWith("coach"));
+  }
   const words = t.split(/\s+/);
   return words.includes("oye") && words.some((w) => w.startsWith("entrenad"));
 }

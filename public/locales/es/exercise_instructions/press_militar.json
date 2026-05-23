@@ -1,0 +1,221 @@
+{
+  "version": 1,
+  "knowledge_doc": "docs/exercises/press_militar.md",
+  "movement": "press",
+  "tts": {
+    "enabled": true,
+    "voice": "es-MX-DaliaNeural",
+    "start_phrase": "Partamos."
+  },
+  "voice_coach": {
+    "enabled": true,
+    "show_hud_status": false
+  },
+  "workout": {
+    "enabled": true,
+    "program_file": "workout_programs/press_4x12.json"
+  },
+  "setup_pose": {
+    "enabled": true,
+    "position": "seated",
+    "hold_ms": 1500,
+    "help_key": "setup_rack",
+    "show_reference_pose": true,
+    "reference_pose_flash_s": 2.5,
+    "reference_pose": {
+      "landmarks": {
+        "LEFT_SHOULDER": {
+          "x": 0.38,
+          "y": 0.35
+        },
+        "RIGHT_SHOULDER": {
+          "x": 0.62,
+          "y": 0.35
+        },
+        "LEFT_ELBOW": {
+          "x": 0.3,
+          "y": 0.48
+        },
+        "RIGHT_ELBOW": {
+          "x": 0.7,
+          "y": 0.48
+        },
+        "LEFT_WRIST": {
+          "x": 0.28,
+          "y": 0.55
+        },
+        "RIGHT_WRIST": {
+          "x": 0.72,
+          "y": 0.55
+        }
+      }
+    },
+    "tts": {
+      "intro": "Fase uno: press militar sentado. Espalda apoyada, de frente a la cámara, brazos en rack con codos flexionados.",
+      "go": "¡Partida! Empieza el press sentado."
+    },
+    "checks": [
+      {
+        "id": "setup_frontal",
+        "kind": "frontal",
+        "message": "Sentado, de frente a la cámara: hombros, codos y muñecas visibles."
+      },
+      {
+        "id": "setup_arms",
+        "kind": "visibility_both_arms",
+        "message": "Asegura que se vean ambos brazos completos (hombro, codo, muñeca)."
+      },
+      {
+        "id": "setup_rack_depth",
+        "kind": "metric",
+        "metric": "elbow_angle_min_deg",
+        "op": "gte",
+        "value": 65,
+        "message": "Flexiona más los codos: rack sentado (≈90°, no brazos rectos arriba)."
+      },
+      {
+        "id": "setup_not_locked",
+        "kind": "metric",
+        "metric": "elbow_angle_min_deg",
+        "op": "lte",
+        "value": 128,
+        "message": "No empieces arriba del todo: baja a rack antes de la partida."
+      },
+      {
+        "id": "setup_scapular_plane",
+        "kind": "metric",
+        "metric": "elbow_scapular_lateral_frac_max",
+        "op": "lte",
+        "value": 0.89,
+        "message": "Plano escapular en setup: cierra codos hacia la barra (no en cruz)."
+      }
+    ]
+  },
+  "exercise_id": "press_militar",
+  "display_name": "Press militar (sentado)",
+  "pose_model": "heavy",
+  "min_rep_interval_ms": 650,
+  "smoothing_alpha": 0.35,
+  "hud": {
+    "angle_label": "Codo (mín.)"
+  },
+  "rep_detection": {
+    "elbow_angle_metric": "elbow_angle_min_deg",
+    "top_min_deg": 145,
+    "bottom_max_deg": 105
+  },
+  "arms_visibility": {
+    "min_visibility": 0.36
+  },
+  "visual": {
+    "wrist_elbow_stack_sin_max": 0.3,
+    "pulse_hz": 2.2,
+    "show_elbow_z": true,
+    "show_bar_guide": true,
+    "elbow_z_offset_target": {
+      "min": 0.02,
+      "max": 0.1
+    },
+    "bar_rack_guide": {
+      "below_nose_min": 0.04,
+      "below_nose_max": 0.22,
+      "vs_shoulder_max": 0.12
+    }
+  },
+  "frontal": {
+    "require_hips": false,
+    "min_shoulder_pair_visibility": 0.35,
+    "min_shoulder_width_norm": 0.1
+  },
+  "rules": [
+    {
+      "id": "frontal_view",
+      "help_key": "frontal_view",
+      "kind": "frontal",
+      "priority": 1,
+      "tts_enabled": true,
+      "blocks_rep": true,
+      "message": "Sentado, de frente a la cámara (hombros y brazos visibles; no hace falta ver piernas)."
+    },
+    {
+      "id": "visibility_both_arms",
+      "help_key": "visibility_both_arms",
+      "kind": "visibility_both_arms",
+      "priority": 2,
+      "tts_enabled": true,
+      "requires": [
+        "frontal_view"
+      ],
+      "blocks_rep": false,
+      "message": "Asegura que se vean hombros, codos y muñecas de ambos brazos."
+    },
+    {
+      "id": "elbows_scapular_plane",
+      "help_key": "elbows_scapular_plane",
+      "kind": "metric",
+      "metric": "elbow_scapular_lateral_frac_max",
+      "op": "lte",
+      "value": 0.9,
+      "phase": "bottom",
+      "priority": 3,
+      "tts_enabled": false,
+      "requires": [
+        "frontal_view",
+        "visibility_both_arms"
+      ],
+      "blocks_rep": false,
+      "message": "Cierra codos hacia la barra: no los abras en cruz a los lados."
+    },
+    {
+      "id": "elbows_forward_rack",
+      "help_key": "elbows_scapular_plane",
+      "kind": "metric",
+      "metric": "elbow_scapular_forward_frac_min",
+      "op": "gte",
+      "value": 0.22,
+      "phase": "bottom",
+      "priority": 6,
+      "tts_enabled": false,
+      "requires": [
+        "frontal_view",
+        "visibility_both_arms"
+      ],
+      "blocks_rep": false,
+      "message": "Lleva los codos un poco hacia adelante, no pegados al torso de lado."
+    },
+    {
+      "id": "wrist_elbow_stack",
+      "help_key": "wrist_elbow_stack",
+      "kind": "metric",
+      "metric": "wrist_elbow_stack_sin_max",
+      "op": "lte",
+      "value": 0.2,
+      "phase": "bottom",
+      "priority": 4,
+      "tts_enabled": false,
+      "requires": [
+        "frontal_view",
+        "visibility_both_arms"
+      ],
+      "blocks_rep": false,
+      "message": "Alinea muñeca con el codo en la bajada"
+    },
+    {
+      "id": "elbows_below_shoulders",
+      "help_key": "elbows_below_shoulders",
+      "kind": "metric",
+      "metric": "elbow_below_shoulder_min_norm",
+      "op": "gte",
+      "value": 0.02,
+      "phase": "bottom",
+      "priority": 5,
+      "tts_enabled": false,
+      "requires": [
+        "frontal_view",
+        "visibility_both_arms"
+      ],
+      "blocks_rep": false,
+      "message": "Rack sentado: prioriza ángulo de codo; esta señal en imagen es solo referencia."
+    }
+  ]
+}

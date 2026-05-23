@@ -1,5 +1,11 @@
 /** Web Speech API con parches para Safari / iOS (requiere gesto del usuario). */
 
+import {
+  getActiveLocale,
+  speechLang,
+  type AppLocale,
+} from "@/i18n/locale";
+
 let unlocked = false;
 let voicesPrimed = false;
 let coachSpeechLocked = false;
@@ -51,7 +57,7 @@ export function unlockSpeech(): boolean {
   if (synth.paused) synth.resume();
   const u = new SpeechSynthesisUtterance(" ");
   u.volume = 0.01;
-  u.lang = "es-MX";
+  u.lang = speechLang();
   u.rate = 1;
   synth.cancel();
   synth.speak(u);
@@ -74,8 +80,18 @@ if (speechSupported()) {
   speechSynthesis.addEventListener("voiceschanged", primeVoices);
 }
 
-function pickSpanishVoice(): SpeechSynthesisVoice | null {
+function pickVoiceForLocale(locale: AppLocale): SpeechSynthesisVoice | null {
   const voices = speechSynthesis.getVoices();
+  if (locale === "en") {
+    const en = voices.filter((v) => v.lang.toLowerCase().startsWith("en"));
+    return (
+      en.find((v) => v.localService && v.lang.toLowerCase().startsWith("en-us")) ??
+      en.find((v) => v.localService) ??
+      en.find((v) => v.lang.toLowerCase().startsWith("en-us")) ??
+      en[0] ??
+      null
+    );
+  }
   const es = voices.filter((v) => v.lang.toLowerCase().startsWith("es"));
   return (
     es.find((v) => v.localService) ??
@@ -90,15 +106,17 @@ function runUtterance(
   opts: { coach: boolean; onDone?: () => void },
 ): void {
   const synth = speechSynthesis;
+  const locale = getActiveLocale();
+  const lang = speechLang(locale);
   primeVoices();
   if (synth.paused) synth.resume();
 
   const start = () => {
     synth.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = "es-MX";
+    u.lang = lang;
     u.rate = 1;
-    const voice = pickSpanishVoice();
+    const voice = pickVoiceForLocale(locale);
     if (voice) u.voice = voice;
     const done = () => {
       if (opts.coach) setCoachSpeechLock(false);

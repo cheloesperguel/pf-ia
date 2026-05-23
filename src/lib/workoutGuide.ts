@@ -1,3 +1,5 @@
+import { getActiveLocale, type AppLocale } from "@/i18n/locale";
+
 export interface WorkoutProgram {
   programId: string;
   displayName: string;
@@ -28,10 +30,14 @@ export type WorkoutPhase =
   | "rest_prompt"
   | "done";
 
-export function parseWorkoutProgram(data: Record<string, unknown>): WorkoutProgram {
+export function parseWorkoutProgram(
+  data: Record<string, unknown>,
+  locale: AppLocale = "es",
+): WorkoutProgram {
+  const en = locale === "en";
   return {
     programId: String(data.program_id ?? "workout"),
-    displayName: String(data.display_name ?? "Entrenamiento"),
+    displayName: String(data.display_name ?? (en ? "Workout" : "Entrenamiento")),
     sets: Math.max(1, Number(data.sets ?? 4)),
     repsPerSet: Math.max(1, Number(data.reps_per_set ?? 12)),
     restSeconds: Math.max(10, Number(data.rest_seconds ?? 60)),
@@ -41,13 +47,24 @@ export function parseWorkoutProgram(data: Record<string, unknown>): WorkoutProgr
     setStartTts: String(data.set_start_tts ?? "Serie {set}."),
     restEndTts: String(
       data.rest_end_tts ??
-        "Vamos a la serie {next_set}. ¿Listo o necesitas otro minuto?",
+        (en
+          ? "Set {next_set} of {total_sets}. Ready or need another minute?"
+          : "Vamos a la serie {next_set}. ¿Listo o necesitas otro minuto?"),
     ),
-    workoutDoneTts: String(data.workout_done_tts ?? "Programa terminado."),
-    extraRestTts: String(data.extra_rest_tts ?? "Otro minuto de descanso."),
-    readyTts: String(data.ready_tts ?? "Listo. Serie {set}."),
+    workoutDoneTts: String(
+      data.workout_done_tts ?? (en ? "Program finished." : "Programa terminado."),
+    ),
+    extraRestTts: String(
+      data.extra_rest_tts ?? (en ? "Another minute of rest." : "Otro minuto de descanso."),
+    ),
+    readyTts: String(
+      data.ready_tts ?? (en ? "Ready. Set {set}." : "Listo. Serie {set}."),
+    ),
     noHearTts: String(
-      data.no_hear_tts ?? "No te escuché. Di listo o pide otro minuto.",
+      data.no_hear_tts ??
+        (en
+          ? "I didn't hear you. Say ready or ask for another minute."
+          : "No te escuché. Di listo o pide otro minuto."),
     ),
   };
 }
@@ -70,9 +87,25 @@ function normText(s: string): string {
     .toLowerCase();
 }
 
-export function classifyReadinessLocal(text: string): "ready" | "more_rest" | "unclear" {
+export function classifyReadinessLocal(
+  text: string,
+  locale: AppLocale = "es",
+): "ready" | "more_rest" | "unclear" {
   const t = normText(text.trim());
   if (!t || t.length < 2) return "unclear";
+  if (locale === "en") {
+    if (
+      /\b(ready|go|yes|yeah|yep|ok|okay|start|continue|let's go|lets go)\b/.test(t)
+    ) {
+      return "ready";
+    }
+    if (
+      /\b(minute|minutes|more|rest|wait|time|another|longer|not yet)\b/.test(t)
+    ) {
+      return "more_rest";
+    }
+    return "unclear";
+  }
   if (
     /\b(listo|lista|dale|vamos|si|sí|ok|okay|ya|empezamos|continua|continúa|adelante)\b/.test(
       t,
@@ -268,7 +301,9 @@ export class WorkoutGuide {
     if (this.currentSet >= this.prog.sets) {
       this.phase = "done";
       this.deps.onSpeak(this.prog.workoutDoneTts);
-      this.deps.onStatus?.("Programa completado");
+      this.deps.onStatus?.(
+        getActiveLocale() === "en" ? "Program completed" : "Programa completado",
+      );
       return;
     }
     const nextSet = this.currentSet + 1;
@@ -309,7 +344,10 @@ export class WorkoutGuide {
       this.restEndAt = performance.now() / 1000 + this.restDurationSeconds;
       this.phase = "rest";
       this.deps.onSpeak(this.prog.extraRestTts);
-      this.hudNote = `+${this.prog.extraRestSeconds}s de descanso`;
+      this.hudNote =
+        getActiveLocale() === "en"
+          ? `+${this.prog.extraRestSeconds}s rest`
+          : `+${this.prog.extraRestSeconds}s de descanso`;
       return;
     }
 
@@ -330,12 +368,18 @@ export class WorkoutGuide {
       this.restEndAt = performance.now() / 1000 + this.restDurationSeconds;
       this.phase = "rest";
       this.deps.onSpeak(this.prog.extraRestTts);
-      this.hudNote = `+${this.prog.extraRestSeconds}s de descanso`;
+      this.hudNote =
+        getActiveLocale() === "en"
+          ? `+${this.prog.extraRestSeconds}s rest`
+          : `+${this.prog.extraRestSeconds}s de descanso`;
     } else {
       this.phase = "rest";
       this.restDurationSeconds = 8;
       this.restEndAt = performance.now() / 1000 + this.restDurationSeconds;
-      this.hudNote = "Di listo o pide otro minuto";
+      this.hudNote =
+        getActiveLocale() === "en"
+          ? "Say ready or ask for another minute"
+          : "Di listo o pide otro minuto";
     }
   }
 

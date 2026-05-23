@@ -1,3 +1,4 @@
+import { getActiveLocale, localeContentUrl, type AppLocale } from "@/i18n/locale";
 import { stripJsoncComments } from "./jsonc";
 
 export async function fetchJson<T = Record<string, unknown>>(url: string): Promise<T> {
@@ -8,6 +9,11 @@ export async function fetchJson<T = Record<string, unknown>>(url: string): Promi
   return JSON.parse(cleaned) as T;
 }
 
-export async function loadExercise(id: string): Promise<Record<string, unknown>> {
-  return fetchJson(`/exercise_instructions/${id}.json`);
+export async function loadExercise(
+  id: string,
+  locale: AppLocale = getActiveLocale(),
+): Promise<Record<string, unknown>> {
+  return fetchJson(
+    localeContentUrl(locale, `exercise_instructions/${id}.json`),
+  );
 }

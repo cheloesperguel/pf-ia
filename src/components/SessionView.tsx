@@ -37,6 +37,7 @@ import {
   setSoloRule,
 } from "@/lib/liveLimits";
 import { WorkoutGuide } from "@/lib/workoutGuide";
+import { useLocale, useT } from "@/i18n/LocaleContext";
 
 interface SessionViewProps {
   exerciseId: string;
@@ -49,7 +50,7 @@ const EMPTY_HUD: SessionHudState = {
   positionLabel: "",
   repCount: 0,
   phaseAngle: NaN,
-  angleLabel: "Ángulo",
+  angleLabel: "",
   metrics: {},
   alerts: [],
   alertOverflow: null,
@@ -66,6 +67,8 @@ const EMPTY_HUD: SessionHudState = {
 };
 
 export function SessionView({ exerciseId, onBack }: SessionViewProps) {
+  const { locale } = useLocale();
+  const t = useT();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const workoutRef = useRef<WorkoutGuide | null>(null);
   const [cfg, setCfg] = useState<Record<string, unknown> | null>(null);
@@ -102,26 +105,44 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
 
   const getSessionContext = useCallback(() => {
     const w = workoutRef.current;
-    const entrenamiento: Record<string, unknown> = {};
+    const workout: Record<string, unknown> = {};
     if (w) {
-      entrenamiento.programa = w.prog.displayName;
-      entrenamiento.serie_actual = w.currentSet;
-      entrenamiento.series_total = w.prog.sets;
-      entrenamiento.reps_serie = w.repsInSet;
-      entrenamiento.reps_meta_serie = w.prog.repsPerSet;
-      entrenamiento.fase_entrenamiento = w.phase;
+      if (locale === "en") {
+        workout.program = w.prog.displayName;
+        workout.current_set = w.currentSet;
+        workout.total_sets = w.prog.sets;
+        workout.reps_in_set = w.repsInSet;
+        workout.reps_target = w.prog.repsPerSet;
+        workout.phase = w.phase;
+      } else {
+        workout.programa = w.prog.displayName;
+        workout.serie_actual = w.currentSet;
+        workout.series_total = w.prog.sets;
+        workout.reps_serie = w.repsInSet;
+        workout.reps_meta_serie = w.prog.repsPerSet;
+        workout.fase_entrenamiento = w.phase;
+      }
     }
-    return {
-      ejercicio: displayName,
-      fase: hud.phase,
-      repeticiones_validas: hud.repCount,
-      alertas_activas: hud.alerts,
-      entrenamiento,
-    };
-  }, [displayName, hud.phase, hud.repCount, hud.alerts]);
+    return locale === "en"
+      ? {
+          exercise: displayName,
+          phase: hud.phase,
+          valid_reps: hud.repCount,
+          active_alerts: hud.alerts,
+          workout,
+        }
+      : {
+          ejercicio: displayName,
+          fase: hud.phase,
+          repeticiones_validas: hud.repCount,
+          alertas_activas: hud.alerts,
+          entrenamiento: workout,
+        };
+  }, [displayName, hud.phase, hud.repCount, hud.alerts, locale]);
 
   const voice = useVoiceCoach({
     enabled: voiceCoachOn,
+    locale,
     showHudStatus: showCoachHud,
     exerciseId,
     exerciseDisplay: displayName,
@@ -193,7 +214,7 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
     (async () => {
       try {
         const [exercise, bundle] = await Promise.all([
-          loadExercise(exerciseId),
+          loadExercise(exerciseId, locale),
           loadPoseSettingsBundle(),
         ]);
         if (cancelled) return;
@@ -203,7 +224,7 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
         setLandmarkerOpts({ ...bundle.landmarker, poseModel: model });
         setLoadErr(null);
 
-        const prog = await loadWorkoutProgram(exercise);
+        const prog = await loadWorkoutProgram(exercise, locale);
         if (cancelled) return;
         if (prog && ttsOn) {
           workoutRef.current = new WorkoutGuide(prog, {
@@ -220,12 +241,16 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
                     message: e.message,
                     count: e.count,
                   })),
+                  locale,
                 );
               }
               if (!errs.length) {
-                return `Serie ${setNum} bien. Sigue así.`;
+                return t("workout.setOk", { n: setNum });
               }
-              return `Serie ${setNum} terminada. Revisa: ${errs[0].message}`;
+              return t("workout.setReview", {
+                n: setNum,
+                msg: errs[0].message,
+              });
             },
             onStatus: setCoachStatus,
             classifyFn: (t) => classifyFnRef.current(t),
@@ -236,7 +261,7 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
       } catch (e) {
         if (!cancelled) {
           setLoadErr(
-            e instanceof Error ? e.message : "Error cargando configuración",
+            e instanceof Error ? e.message : t("session.loadError"),
           );
         }
       }
@@ -245,7 +270,7 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
       cancelled = true;
       workoutRef.current = null;
     };
-  }, [exerciseId, speakAlert, speakCoach, ttsOn]);
+  }, [exerciseId, locale, speakAlert, speakCoach, t, ttsOn]);
 
   useEffect(() => {
     if (!cfg) return;
@@ -256,10 +281,10 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
       positionLabel: setupPositionLabel(cfg),
       holdMs: setupHoldMs(cfg),
       angleLabel: String(
-        ((cfg.hud ?? {}) as Record<string, unknown>).angle_label ?? "Ángulo",
+        ((cfg.hud ?? {}) as Record<string, unknown>).angle_label ?? t("hud.angle"),
       ),
     }));
-  }, [cfg, exerciseId]);
+  }, [cfg, exerciseId, t]);
 
   const lastHudPush = useRef(0);
 
@@ -305,10 +330,10 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
 
     if (!poseReady || poseLoading) {
       const msg = poseLoading
-        ? "Cargando modelo de pose…"
+        ? t("session.poseLoading")
         : poseError
-          ? "Pose no disponible"
-          : "Iniciando detección…";
+          ? t("session.poseUnavailable")
+          : t("session.poseStarting");
       drawPoseStatusBanner(ctx, w, h, msg);
       return;
     }
@@ -350,7 +375,7 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
 
       pushHud(state);
     } else {
-      drawPoseStatusBanner(ctx, w, h, "Colócate de frente a la cámara");
+      drawPoseStatusBanner(ctx, w, h, t("session.faceCamera"));
       const state = processFrame(undefined, undefined, ts);
       pushHud(state);
     }
@@ -366,6 +391,7 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
     poseReady,
     processFrame,
     pushHud,
+    t,
     voice.status,
   ]);
 
@@ -394,8 +420,8 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
   const busy = poseLoading || !landmarkerOpts || !cfg;
   const hudLoadingMessage = busy
     ? poseLoading
-      ? "Cargando modelo de pose…"
-      : "Cargando ejercicio…"
+      ? t("session.poseLoading")
+      : t("session.exerciseLoading")
     : null;
   const status = loadErr || camError || poseError;
 
@@ -415,11 +441,13 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
     <div className="session">
       <header className="session-bar">
         <button type="button" className="btn-ghost" onClick={onBack}>
-          ← Volver
+          {t("session.back")}
         </button>
         <h2>{displayName}</h2>
         <span className="session-meta">
-          {busy ? "Cargando…" : `${fps} fps · ${hud.repCount} reps`}
+          {busy
+            ? t("session.loading")
+            : t("session.fpsReps", { fps, reps: hud.repCount })}
         </span>
         {cfg && (
           <button
@@ -427,7 +455,7 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
             className={`btn-cal-toggle${calOpen ? " active" : ""}`}
             onClick={() => (calOpen ? exitCalibration() : enterCalibration())}
           >
-            {calOpen ? "Salir cal." : "Calibrar"}
+            {calOpen ? t("session.exitCal") : t("session.calibrate")}
           </button>
         )}
       </header>
@@ -436,16 +464,16 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
 
       {needsUnlock && (
         <p className="session-voice-hint">
-          En iPhone la voz requiere un toque.{" "}
+          {t("session.voiceUnlockHint")}{" "}
           <button
             type="button"
             className="btn-voice-unlock"
             onClick={() => {
               unlockSpeech();
-              speakText("Voz activada. Puedes entrenar.");
+              speakText(t("session.voiceActivated"));
             }}
           >
-            Activar voz
+            {t("session.voiceUnlockBtn")}
           </button>
         </p>
       )}
@@ -502,7 +530,7 @@ export function SessionView({ exerciseId, onBack }: SessionViewProps) {
             onCfgChange={bumpCfg}
             onClose={exitCalibration}
             onApplied={async () => {
-              const ex = await loadExercise(exerciseId);
+              const ex = await loadExercise(exerciseId, locale);
               setCfg(ex);
               setCfgRevision((n) => n + 1);
             }}
